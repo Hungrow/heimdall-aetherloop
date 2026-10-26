@@ -9,15 +9,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.SystemUpdate
-import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.Vibration
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -28,7 +31,7 @@ import com.heimdall.aetherloop.game.model.RealmLevel
 import com.heimdall.aetherloop.ui.theme.*
 
 /**
- * Settings & Ecosystem Dialog.
+ * Settings, Level Selector & Progress Dialog.
  */
 @Composable
 fun SettingsDialog(
@@ -62,7 +65,7 @@ fun SettingsDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Ajustes del Sistema",
+                        text = "Ajustes de AetherLoop",
                         color = TextPrimary,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
@@ -87,7 +90,7 @@ fun SettingsDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.VolumeUp, contentDescription = null, tint = BifrostCyan)
+                            Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, tint = BifrostCyan)
                             Spacer(modifier = Modifier.width(10.dp))
                             Text("Sonido ASMR Pentatónico", color = TextPrimary, fontSize = 13.sp)
                         }
@@ -96,6 +99,7 @@ fun SettingsDialog(
                             onCheckedChange = {
                                 soundEnabled = it
                                 engine.soundSynthesizer.isMuted = !it
+                                engine.progressManager.setSoundEnabled(it)
                             },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = CosmosDark,
@@ -104,7 +108,7 @@ fun SettingsDialog(
                         )
                     }
 
-                    Divider(color = CosmosBorder)
+                    HorizontalDivider(color = CosmosBorder)
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -121,6 +125,7 @@ fun SettingsDialog(
                             onCheckedChange = {
                                 hapticsEnabled = it
                                 engine.hapticManager.isHapticsEnabled = it
+                                engine.progressManager.setHapticsEnabled(it)
                             },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = CosmosDark,
@@ -130,38 +135,75 @@ fun SettingsDialog(
                     }
                 }
 
-                // Level Selector
+                // Level Selector with Stars & Unlock check
                 Text(
-                    text = "SELECCIÓN DE REINO",
+                    text = "MAPA DE REINOS Y ESTRELLAS",
                     color = TextMuted,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
                 )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val highestUnlocked = engine.progressManager.highestUnlockedRealm
+
                     for (i in RealmLevel.ALL_LEVELS.indices) {
-                        val isSelected = engine.levelIndex.value == i
-                        Box(
+                        val level = RealmLevel.ALL_LEVELS[i]
+                        val isUnlocked = i <= highestUnlocked || i == 0
+                        val isCurrent = engine.levelIndex.value == i
+                        val stars = engine.progressManager.getRealmStars(i)
+                        val highScore = engine.progressManager.getRealmHighScore(i)
+
+                        Row(
                             modifier = Modifier
-                                .weight(1f)
-                                .height(40.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isSelected) BifrostCyan else CosmosCard)
-                                .clickable {
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isCurrent) BifrostCyan.copy(alpha = 0.2f) else CosmosCard)
+                                .border(
+                                    1.dp,
+                                    if (isCurrent) BifrostCyan else CosmosBorder,
+                                    RoundedCornerShape(12.dp)
+                                )
+                                .clickable(enabled = isUnlocked) {
                                     engine.loadLevel(i)
                                     onDismiss()
-                                },
-                            contentAlignment = Alignment.Center
+                                }
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "${i + 1}",
-                                color = if (isSelected) CosmosDark else TextPrimary,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (!isUnlocked) {
+                                    Icon(Icons.Default.Lock, contentDescription = null, tint = TextMuted, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                }
+                                Column {
+                                    Text(
+                                        text = "${i + 1}. ${level.realmName}",
+                                        color = if (isUnlocked) TextPrimary else TextMuted,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp
+                                    )
+                                    if (highScore > 0) {
+                                        Text(
+                                            text = "Récord: $highScore pts",
+                                            color = TextSecondary,
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                }
+                            }
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                for (s in 1..3) {
+                                    Icon(
+                                        imageVector = Icons.Default.Star,
+                                        contentDescription = null,
+                                        tint = if (s <= stars) HeimdallGold else Color(0x33FFFFFF),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -195,7 +237,7 @@ fun SettingsDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("Ecosistema Heimdall", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Text("AetherLoop • Ecosistema Heimdall", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                             Text("Versión instalada: v${HeimdallEcosystem.VERSION_NAME}", color = TextSecondary, fontSize = 11.sp)
                         }
                         IconButton(

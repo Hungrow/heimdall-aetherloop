@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import com.heimdall.aetherloop.core.HapticManager
+import com.heimdall.aetherloop.core.PlayerProgressManager
 import com.heimdall.aetherloop.core.SoundSynthesizer
 import com.heimdall.aetherloop.game.model.*
 import com.heimdall.aetherloop.game.physics.BifrostTrack
@@ -23,14 +24,15 @@ enum class GameState {
 }
 
 /**
- * Master Game Loop Engine for Heimdall: AetherLoop.
+ * Master Game Loop Engine for AetherLoop.
  *
  * Coordinates track mathematics, SandArt deconstruction, granular particle physics,
- * vessel queues, and level progression with Compose-reactive state collections.
+ * relic powers, combos, and persistent progression.
  */
 class GameLoopEngine(
     val soundSynthesizer: SoundSynthesizer,
-    val hapticManager: HapticManager
+    val hapticManager: HapticManager,
+    val progressManager: PlayerProgressManager
 ) {
     val track = BifrostTrack()
     val sandMatrix = SandArtMatrix(cols = 26, rows = 20)
@@ -44,7 +46,7 @@ class GameLoopEngine(
     var currentLevel: RealmLevel = RealmLevel.ALL_LEVELS.first()
         private set
 
-    // Compose Reactive Collections for instant 60 FPS UI synchronization
+    // Compose Reactive Collections for instant UI updates
     val activeVessels = mutableStateListOf<Vessel>()
     val conduits = mutableStateListOf<Conduit>()
     val vesselQueue = mutableStateListOf<AetherColor>()
@@ -52,7 +54,23 @@ class GameLoopEngine(
     val heldVesselColor = mutableStateOf<AetherColor?>(null)
     val isWarpSpeed = mutableStateOf(false)
     val clearedProgress = mutableFloatStateOf(0f)
-    val totalHarvested = mutableIntStateOf(0)
+
+    // Score, Combos, and Stars
+    val currentScore = mutableIntStateOf(0)
+    val comboMultiplier = mutableIntStateOf(1)
+    private var comboDecayTimer = 0f
+
+    val earnedStars = mutableIntStateOf(0)
+    val isNewHighScore = mutableStateOf(false)
+
+    // Relic Powers: Chrono Stasis & Gjallarhorn
+    val chronoCharge = mutableFloatStateOf(0f) // 0.0 to 1.0
+    val isChronoActive = mutableStateOf(false)
+    private var chronoTimer = 0f
+
+    val gjallarhornCharge = mutableFloatStateOf(0f) // 0.0 to 1.0
+    val isGjallarhornActive = mutableStateOf(false)
+    private var gjallarhornTimer = 0f
 
     private val _gameState = MutableStateFlow(GameState.READY)
     val gameState: StateFlow<GameState> = _gameState.asStateFlow()
@@ -62,22 +80,70 @@ class GameLoopEngine(
 
     init {
         particleEngine.onVesselCompleted = { vessel ->
-            totalHarvested.intValue += vessel.capacity
+            currentScore.intValue += 250 * comboMultiplier.intValue
+            progressManager.addHarvestedAether(vessel.capacity)
+            chargeRelicPowers(25)
+        }
+
+        particleEngine.onParticleCaptured = { points ->
+            currentScore.intValue += points
+            comboDecayTimer = 2.2f // reset combo timer
+            if (comboMultiplier.intValue < 5) {
+                comboMultiplier.intValue++
+            }
+            chargeRelicPowers(1)
         }
 
         particleEngine.onArtworkCleared = {
             if (_gameState.value == GameState.PLAYING) {
-                _gameState.value = GameState.REALM_STABILIZED
-                soundSynthesizer.playRealmVictory()
-                hapticManager.onRealmComplete()
+                onLevelCompleted()
             }
         }
 
         loadLevel(0)
     }
 
+    private fun chargeRelicPowers(amount: Int) {
+        val chronoStep = amount.toFloat() / AetherPower.CHRONO_STASIS.chargeThreshold.toFloat()
+        chronoCharge.floatValue = (chronoCharge.floatValue + chronoStep).coerceAtMost(1.0f)
+
+        val hornStep = amount.toFloat() / AetherPower.GJALLARHORN_SURGE.chargeThreshold.toFloat()
+        gjallarhornCharge.floatValue = (gjallarhornCharge.floatValue + hornStep).coerceAtMost(1.0f)
+    }
+
     /**
-     * Initializes a realm level and generates the sand-art matrix.
+     * Activates Chrono Stasis (Time Dilation).
+     */
+    fun activateChronoStasis(): Boolean {
+        if (chronoCharge.floatValue >= 1.0f && !isChronoActive.value) {
+            isChronoActive.value = true
+            particleEngine.isChronoStasisActive = true
+            chronoTimer = AetherPower.CHRONO_STASIS.activeDurationSec
+            chronoCharge.floatValue = 0f
+            soundSynthesizer.playLaunchWhoosh()
+            return true
+        }
+        return false
+    }
+
+    /**
+     * Activates Gjallarhorn Magnetic Surge.
+     */
+    fun activateGjallarhorn(): Boolean {
+        if (gjallarhornCharge.floatValue >= 1.0f && !isGjallarhornActive.value) {
+            isGjallarhornActive.value = true
+            particleEngine.isGjallarhornActive = true
+            gjallarhornTimer = AetherPower.GJALLARHORN_SURGE.activeDurationSec
+            gjallarhornCharge.floatValue = 0f
+            soundSynthesizer.playVesselFull()
+            hapticManager.onVesselFilled()
+            return true
+        }
+        return false
+    }
+
+    /**
+     * Initializes a realm level.
      */
     fun loadLevel(index: Int) {
         val safeIndex = index.coerceIn(0, RealmLevel.ALL_LEVELS.lastIndex)
@@ -89,13 +155,17 @@ class GameLoopEngine(
         vesselQueue.clear()
         heldVesselColor.value = null
         isWarpSpeed.value = false
-        totalHarvested.intValue = 0
+        currentScore.intValue = 0
+        comboMultiplier.intValue = 1
+        comboDecayTimer = 0f
         clearedProgress.floatValue = 0f
+        earnedStars.intValue = 0
+        isNewHighScore.value = false
 
-        // 1. Load the Sand Art Matrix for this level
+        // Load Pattern
         sandMatrix.loadPattern(safeIndex)
 
-        // 2. Build Conduits / Funnels beneath the Sand Art
+        // Build Conduits
         val colors = currentLevel.colors
         val numConduits = colors.size
         val colStep = sandMatrix.cols / numConduits
@@ -118,31 +188,29 @@ class GameLoopEngine(
             )
         }
 
-        // 3. Populate Vessel Queue
+        // Populate Queue
         vesselQueue.addAll(currentLevel.availableVesselQueue)
         if (vesselQueue.size < 6) {
             vesselQueue.addAll(currentLevel.availableVesselQueue)
         }
 
-        // 4. Pre-spawn 2 initial vessels on the track so the game is immediately in action!
+        // Pre-spawn 2 initial vessels on track
         if (vesselQueue.isNotEmpty()) {
-            val firstColor = vesselQueue.removeAt(0)
             activeVessels.add(
                 Vessel(
                     id = vesselIdGenerator.incrementAndGet(),
-                    color = firstColor,
-                    trackProgress = 0.05f, // Arriving onto top straight
+                    color = vesselQueue.removeAt(0),
+                    trackProgress = 0.05f,
                     capacity = 30
                 )
             )
         }
         if (vesselQueue.isNotEmpty()) {
-            val secondColor = vesselQueue.removeAt(0)
             activeVessels.add(
                 Vessel(
                     id = vesselIdGenerator.incrementAndGet(),
-                    color = secondColor,
-                    trackProgress = 0.60f, // Traveling around bottom
+                    color = vesselQueue.removeAt(0),
+                    trackProgress = 0.58f,
                     capacity = 30
                 )
             )
@@ -163,19 +231,14 @@ class GameLoopEngine(
         }
     }
 
-    /**
-     * Dispatches the next vessel from the queue onto the track.
-     */
     fun dispatchNextVessel(): Boolean {
         if (_gameState.value != GameState.PLAYING) return false
 
-        // Check if there's enough space near the launch zone
         val spawnProgress = 0.65f
         val isOccupied = activeVessels.any {
             kotlin.math.abs(it.trackProgress - spawnProgress) < 0.12f
         }
         if (isOccupied && activeVessels.size >= 5) {
-            // Wait slightly so vessels don't overlap awkwardly
             return false
         }
 
@@ -195,9 +258,6 @@ class GameLoopEngine(
         return true
     }
 
-    /**
-     * Swaps the upcoming vessel with the held slot.
-     */
     fun swapHeldColor() {
         if (vesselQueue.isEmpty()) return
         val currentFront = vesselQueue.removeAt(0)
@@ -214,20 +274,72 @@ class GameLoopEngine(
         isWarpSpeed.value = !isWarpSpeed.value
     }
 
-    /**
-     * Ticks the game simulation by delta time (seconds).
-     */
+    private fun onLevelCompleted() {
+        _gameState.value = GameState.REALM_STABILIZED
+        soundSynthesizer.playRealmVictory()
+        hapticManager.onRealmComplete()
+
+        // Calculate Stars
+        val score = currentScore.intValue
+        val target = currentLevel.targetScore
+        val stars = when {
+            score >= target -> 3
+            score >= (target * 0.7f).toInt() -> 2
+            else -> 1
+        }
+        earnedStars.intValue = stars
+
+        val isHigh = progressManager.setRealmHighScore(_levelIndex.value, score)
+        isNewHighScore.value = isHigh
+        progressManager.setRealmStars(_levelIndex.value, stars)
+
+        // Unlock next realm
+        if (_levelIndex.value + 1 > progressManager.highestUnlockedRealm) {
+            progressManager.highestUnlockedRealm = _levelIndex.value + 1
+        }
+    }
+
     fun update(dt: Float, width: Float, height: Float) {
         if (_gameState.value != GameState.PLAYING) return
 
         track.updateDimensions(width, height)
 
-        val speedMultiplier = if (isWarpSpeed.value) 1.65f else 1.0f
-        val effectiveSpeed = currentLevel.baseTrackSpeed * speedMultiplier
+        // Update Relic Timers
+        if (isChronoActive.value) {
+            chronoTimer -= dt
+            if (chronoTimer <= 0f) {
+                isChronoActive.value = false
+                particleEngine.isChronoStasisActive = false
+            }
+        }
+
+        if (isGjallarhornActive.value) {
+            gjallarhornTimer -= dt
+            if (gjallarhornTimer <= 0f) {
+                isGjallarhornActive.value = false
+                particleEngine.isGjallarhornActive = false
+            }
+        }
+
+        // Combo decay
+        if (comboMultiplier.intValue > 1) {
+            comboDecayTimer -= dt
+            if (comboDecayTimer <= 0f) {
+                comboMultiplier.intValue = (comboMultiplier.intValue - 1).coerceAtLeast(1)
+                comboDecayTimer = 1.5f
+            }
+        }
+
+        val speedMult = when {
+            isChronoActive.value -> 0.45f
+            isWarpSpeed.value -> 1.65f
+            else -> 1.0f
+        }
+        val effectiveSpeed = currentLevel.baseTrackSpeed * speedMult
 
         track.beltScrollOffset = (track.beltScrollOffset + effectiveSpeed * dt * 6f) % 1.0f
 
-        // 1. Update Vessels
+        // 1. Move Vessels
         val iterator = activeVessels.iterator()
         while (iterator.hasNext()) {
             val vessel = iterator.next()
@@ -239,7 +351,6 @@ class GameLoopEngine(
                 vessel.fullFlashAnim = (vessel.fullFlashAnim - dt * 2.5f).coerceAtLeast(0f)
             }
 
-            // Once a full vessel completes its lap back to the dock (left straight near 0.70f), it retires
             if (vessel.isFull && vessel.state == VesselState.ON_TRACK && vessel.fullFlashAnim <= 0f) {
                 if (vessel.trackProgress in 0.68f..0.78f) {
                     vessel.state = VesselState.DOCKING
@@ -248,14 +359,13 @@ class GameLoopEngine(
 
             if (vessel.state == VesselState.DOCKING) {
                 iterator.remove()
-                // Auto-replenish queue so the belt is always lively
                 if (vesselQueue.size < 4) {
                     vesselQueue.addAll(currentLevel.availableVesselQueue)
                 }
             }
         }
 
-        // 2. Update Granular Particle Physics & Sand Matrix deconstruction
+        // 2. Physics & Particle Simulation
         particleEngine.update(
             dt = dt,
             width = width,
@@ -264,7 +374,8 @@ class GameLoopEngine(
             conduits = conduits,
             vessels = activeVessels,
             track = track,
-            flowRatePerSec = currentLevel.flowRatePerSec * 2.5f // Energetic flow
+            flowRatePerSec = currentLevel.flowRatePerSec * 2.5f,
+            comboMultiplier = comboMultiplier.intValue
         )
 
         clearedProgress.floatValue = sandMatrix.clearedRatio

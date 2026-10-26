@@ -11,39 +11,45 @@ data class RealmLevel(
     val subtitle: String,
     val lore: String,
     val colors: List<AetherColor>,
-    val particlesPerConduit: Int = 40,
-    val baseTrackSpeed: Float = 0.09f, // Progress per second
-    val flowRatePerSec: Float = 6.0f,  // Particles per second per conduit
+    val particlesPerConduit: Int = 35,
+    val baseTrackSpeed: Float = 0.085f,
+    val flowRatePerSec: Float = 4.8f,
     val availableVesselQueue: List<AetherColor>,
-    val maxSpillAllowed: Int = 25
+    val targetScore: Int = 1200
 ) {
+    val isEndless: Boolean
+        get() = levelNumber >= 8
+
     companion object {
         val ALL_LEVELS: List<RealmLevel> = listOf(
+            // 1. IDAVOLL
             RealmLevel(
                 levelNumber = 1,
                 realmName = "Idavoll",
                 subtitle = "Iniciación de la Forja Solar",
-                lore = "Alinea las vasijas solares para canalizar el éter dorado primigenio.",
+                lore = "Canaliza el éter dorado primigenio sobre la planicie de los dioses.",
                 colors = listOf(AetherColor.SOLAR_GOLD),
-                particlesPerConduit = 35,
+                particlesPerConduit = 30,
                 baseTrackSpeed = 0.08f,
-                flowRatePerSec = 4.5f,
+                flowRatePerSec = 4.0f,
                 availableVesselQueue = listOf(
+                    AetherColor.SOLAR_GOLD,
                     AetherColor.SOLAR_GOLD,
                     AetherColor.SOLAR_GOLD,
                     AetherColor.SOLAR_GOLD
                 ),
-                maxSpillAllowed = 30
+                targetScore = 800
             ),
+            // 2. BIFRÖST
             RealmLevel(
                 levelNumber = 2,
                 realmName = "Bifröst",
-                subtitle = "Sincronía del Puente del Arcoíris",
-                lore = "Dos corrientes estelares fluyen a ritmos cruzados. Despacha con cadencia rítmica.",
+                subtitle = "Sincronía del Arcoíris",
+                lore = "Dos corrientes estelares fluyen a ritmos cruzados entre Asgard y Midgard.",
                 colors = listOf(AetherColor.SOLAR_GOLD, AetherColor.ASTRAL_CYAN),
-                particlesPerConduit = 35,
+                particlesPerConduit = 32,
                 baseTrackSpeed = 0.09f,
-                flowRatePerSec = 5.0f,
+                flowRatePerSec = 4.6f,
                 availableVesselQueue = listOf(
                     AetherColor.SOLAR_GOLD,
                     AetherColor.ASTRAL_CYAN,
@@ -52,59 +58,104 @@ data class RealmLevel(
                     AetherColor.ASTRAL_CYAN,
                     AetherColor.SOLAR_GOLD
                 ),
-                maxSpillAllowed = 35
+                targetScore = 1400
             ),
+            // 3. ALFHEIM
             RealmLevel(
                 levelNumber = 3,
                 realmName = "Alfheim",
-                subtitle = "Aurora de los Elfos de la Luz",
-                lore = "El velo de aurora vibra en tres frecuencias. Coordina el orden de las vasijas.",
+                subtitle = "Alas de Valquiria",
+                lore = "Tres frecuencias armónicas tejen el velo de aurora de los elfos de luz.",
                 colors = listOf(AetherColor.SOLAR_GOLD, AetherColor.ASTRAL_CYAN, AetherColor.AURORA_VIOLET),
-                particlesPerConduit = 40,
+                particlesPerConduit = 35,
                 baseTrackSpeed = 0.095f,
-                flowRatePerSec = 5.2f,
+                flowRatePerSec = 5.0f,
                 availableVesselQueue = listOf(
                     AetherColor.AURORA_VIOLET,
                     AetherColor.SOLAR_GOLD,
                     AetherColor.ASTRAL_CYAN,
                     AetherColor.AURORA_VIOLET,
+                    AetherColor.ASTRAL_CYAN,
+                    AetherColor.SOLAR_GOLD
+                ),
+                targetScore = 2000
+            ),
+            // 4. NIDAVELLIR
+            RealmLevel(
+                levelNumber = 4,
+                realmName = "Nidavellir",
+                subtitle = "Engranajes Enanos",
+                lore = "Mecanismos celestiales forjados por los hijos de Ivaldi en el corazón de la montaña.",
+                colors = listOf(AetherColor.ASTRAL_CYAN, AetherColor.AURORA_VIOLET, AetherColor.SOLAR_GOLD),
+                particlesPerConduit = 36,
+                baseTrackSpeed = 0.10f,
+                flowRatePerSec = 5.2f,
+                availableVesselQueue = listOf(
+                    AetherColor.ASTRAL_CYAN,
+                    AetherColor.AURORA_VIOLET,
+                    AetherColor.SOLAR_GOLD,
                     AetherColor.ASTRAL_CYAN,
                     AetherColor.SOLAR_GOLD,
                     AetherColor.AURORA_VIOLET
                 ),
-                maxSpillAllowed = 40
+                targetScore = 2400
             ),
+            // 5. MUSPELHEIM
             RealmLevel(
-                levelNumber = 4,
+                levelNumber = 5,
                 realmName = "Muspelheim",
-                subtitle = "Crisol de Llamas Cósmicas",
-                lore = "Cuatro fuentes de plasma celestial. La velocidad del bucle se intensifica.",
+                subtitle = "Crisol de Surtr",
+                lore = "Torrentes de plasma incandescente rugen a máxima cadencia rítmica.",
                 colors = listOf(
                     AetherColor.SOLAR_GOLD,
                     AetherColor.ASTRAL_CYAN,
                     AetherColor.AURORA_VIOLET,
                     AetherColor.CRIMSON_FLAME
                 ),
-                particlesPerConduit = 40,
-                baseTrackSpeed = 0.105f,
-                flowRatePerSec = 5.5f,
+                particlesPerConduit = 38,
+                baseTrackSpeed = 0.108f,
+                flowRatePerSec = 5.6f,
                 availableVesselQueue = listOf(
                     AetherColor.CRIMSON_FLAME,
                     AetherColor.ASTRAL_CYAN,
                     AetherColor.SOLAR_GOLD,
                     AetherColor.AURORA_VIOLET,
                     AetherColor.CRIMSON_FLAME,
+                    AetherColor.AURORA_VIOLET
+                ),
+                targetScore = 3000
+            ),
+            // 6. NIFLHEIM
+            RealmLevel(
+                levelNumber = 6,
+                realmName = "Niflheim",
+                subtitle = "Cristal del Frío Primordial",
+                lore = "Niebla helada y escarcha estelar que exige precisión milimétrica.",
+                colors = listOf(
+                    AetherColor.ASTRAL_CYAN,
+                    AetherColor.EMERALD_YGGDRASIL,
                     AetherColor.AURORA_VIOLET,
-                    AetherColor.SOLAR_GOLD,
+                    AetherColor.CRIMSON_FLAME
+                ),
+                particlesPerConduit = 40,
+                baseTrackSpeed = 0.114f,
+                flowRatePerSec = 5.8f,
+                availableVesselQueue = listOf(
+                    AetherColor.EMERALD_YGGDRASIL,
+                    AetherColor.ASTRAL_CYAN,
+                    AetherColor.AURORA_VIOLET,
+                    AetherColor.CRIMSON_FLAME,
+                    AetherColor.EMERALD_YGGDRASIL,
                     AetherColor.ASTRAL_CYAN
                 ),
-                maxSpillAllowed = 45
+                targetScore = 3600
             ),
+            // 7. YGGDRASIL
             RealmLevel(
-                levelNumber = 5,
+                levelNumber = 7,
                 realmName = "Yggdrasil",
-                subtitle = "La Convergencia de los Nueve Mundos",
-                lore = "Las cinco ramas del Árbol del Mundo canalizan su savia estelar en un frenesí armónico.",
+                subtitle = "La Gran Convergencia",
+                lore = "Las cinco ramas del Árbol Cósmico armonizadas en perfecta resonancia.",
                 colors = listOf(
                     AetherColor.SOLAR_GOLD,
                     AetherColor.ASTRAL_CYAN,
@@ -112,8 +163,8 @@ data class RealmLevel(
                     AetherColor.CRIMSON_FLAME,
                     AetherColor.EMERALD_YGGDRASIL
                 ),
-                particlesPerConduit = 45,
-                baseTrackSpeed = 0.115f,
+                particlesPerConduit = 42,
+                baseTrackSpeed = 0.12f,
                 flowRatePerSec = 6.0f,
                 availableVesselQueue = listOf(
                     AetherColor.EMERALD_YGGDRASIL,
@@ -121,13 +172,34 @@ data class RealmLevel(
                     AetherColor.ASTRAL_CYAN,
                     AetherColor.SOLAR_GOLD,
                     AetherColor.CRIMSON_FLAME,
-                    AetherColor.EMERALD_YGGDRASIL,
-                    AetherColor.AURORA_VIOLET,
-                    AetherColor.ASTRAL_CYAN,
-                    AetherColor.SOLAR_GOLD,
-                    AetherColor.CRIMSON_FLAME
+                    AetherColor.EMERALD_YGGDRASIL
                 ),
-                maxSpillAllowed = 50
+                targetScore = 4500
+            ),
+            // 8. NEXUS INFINITO (ENDLESS)
+            RealmLevel(
+                levelNumber = 8,
+                realmName = "Nexus Infinito",
+                subtitle = "Incursión del Vacío",
+                lore = "Prueba de maestría sin fin. La velocidad escala con cada constelación sellada.",
+                colors = listOf(
+                    AetherColor.SOLAR_GOLD,
+                    AetherColor.ASTRAL_CYAN,
+                    AetherColor.AURORA_VIOLET,
+                    AetherColor.CRIMSON_FLAME,
+                    AetherColor.EMERALD_YGGDRASIL
+                ),
+                particlesPerConduit = 50,
+                baseTrackSpeed = 0.125f,
+                flowRatePerSec = 6.5f,
+                availableVesselQueue = listOf(
+                    AetherColor.SOLAR_GOLD,
+                    AetherColor.ASTRAL_CYAN,
+                    AetherColor.AURORA_VIOLET,
+                    AetherColor.CRIMSON_FLAME,
+                    AetherColor.EMERALD_YGGDRASIL
+                ),
+                targetScore = 10000
             )
         )
     }

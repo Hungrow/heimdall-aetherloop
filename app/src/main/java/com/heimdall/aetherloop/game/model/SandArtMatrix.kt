@@ -3,6 +3,7 @@ package com.heimdall.aetherloop.game.model
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.sin
+import kotlin.random.Random
 
 /**
  * Sand Art Matrix (Mosaic of Celestial Grains).
@@ -32,7 +33,6 @@ class SandArtMatrix(
      * Loads the rune sand-art pattern corresponding to the given realm level.
      */
     fun loadPattern(levelIndex: Int) {
-        // Clear existing grid
         for (r in 0 until rows) {
             for (c in 0 until cols) {
                 grid[r][c] = null
@@ -46,11 +46,13 @@ class SandArtMatrix(
             0 -> generateSunDisc(cx, cy)
             1 -> generateBifrostArch(cx, cy)
             2 -> generateValkyrieWings(cx, cy)
-            3 -> generateMuspelCore(cx, cy)
-            else -> generateYggdrasilTree(cx, cy)
+            3 -> generateDwarvenForge(cx, cy)
+            4 -> generateMuspelCore(cx, cy)
+            5 -> generateNiflheimSnowflake(cx, cy)
+            6 -> generateYggdrasilTree(cx, cy)
+            else -> generateEndlessProcedural(cx, cy)
         }
 
-        // Count initial grains
         var count = 0
         for (r in 0 until rows) {
             for (c in 0 until cols) {
@@ -62,10 +64,10 @@ class SandArtMatrix(
     }
 
     /**
-     * Level 1: Sun of Asgard (Sol Invictus)
+     * Realm 1: Idavoll - Sun of Asgard (Sol Invictus)
      */
     private fun generateSunDisc(cx: Float, cy: Float) {
-        val radius = 7.5f
+        val radius = 7.8f
         for (r in 0 until rows) {
             for (c in 0 until cols) {
                 val dist = hypot(c - cx, r - cy)
@@ -77,18 +79,18 @@ class SandArtMatrix(
     }
 
     /**
-     * Level 2: Bifrost Arches (Dual Sol Gold and Astral Cyan rainbow bridge)
+     * Realm 2: Bifröst - The Rainbow Crossing (Sol Gold & Astral Cyan)
      */
     private fun generateBifrostArch(cx: Float, cy: Float) {
         for (r in 0 until rows) {
             for (c in 0 until cols) {
                 val dx = (c - cx)
-                val dy = (r - (cy + 4f))
+                val dy = (r - (cy + 4.5f))
                 val dist = hypot(dx, dy)
-                if (r <= cy + 4f) {
-                    if (dist in 4.5f..7.2f) {
+                if (r <= cy + 4.5f) {
+                    if (dist in 4.5f..7.5f) {
                         grid[r][c] = AetherColor.ASTRAL_CYAN
-                    } else if (dist in 7.3f..10.0f) {
+                    } else if (dist in 7.6f..10.5f) {
                         grid[r][c] = AetherColor.SOLAR_GOLD
                     }
                 }
@@ -97,7 +99,7 @@ class SandArtMatrix(
     }
 
     /**
-     * Level 3: Valkyrie Winged Rune (Gold, Cyan, Aurora Violet)
+     * Realm 3: Alfheim - Valkyrie Winged Rune (Gold, Cyan, Violet)
      */
     private fun generateValkyrieWings(cx: Float, cy: Float) {
         for (r in 0 until rows) {
@@ -105,11 +107,11 @@ class SandArtMatrix(
                 val dx = kotlin.math.abs(c - cx)
                 val dy = (r - cy)
                 val dist = hypot(dx, dy)
-                if (dist <= 9f) {
+                if (dist <= 9.5f) {
                     when {
                         dx < 2.5f -> grid[r][c] = AetherColor.SOLAR_GOLD
-                        dx in 2.5f..5.5f && r > 4 -> grid[r][c] = AetherColor.ASTRAL_CYAN
-                        dx in 5.5f..8.5f && r > 2 -> grid[r][c] = AetherColor.AURORA_VIOLET
+                        dx in 2.5f..5.8f && r > 3 -> grid[r][c] = AetherColor.ASTRAL_CYAN
+                        dx in 5.8f..9.0f && r > 2 -> grid[r][c] = AetherColor.AURORA_VIOLET
                     }
                 }
             }
@@ -117,17 +119,40 @@ class SandArtMatrix(
     }
 
     /**
-     * Level 4: Muspelheim Core (Sol, Cyan, Violet, Crimson Flame)
+     * Realm 4: Nidavellir - Dwarven Foundry (Cyan, Violet, Gold Cogwheel)
+     */
+    private fun generateDwarvenForge(cx: Float, cy: Float) {
+        for (r in 0 until rows) {
+            for (c in 0 until cols) {
+                val dx = kotlin.math.abs(c - cx)
+                val dy = kotlin.math.abs(r - cy)
+                val dist = hypot(dx, dy)
+                // Cogwheel teeth & core
+                if (dist <= 4.0f) {
+                    grid[r][c] = AetherColor.SOLAR_GOLD
+                } else if (dist <= 8.5f) {
+                    val angle = kotlin.math.atan2(r - cy, c - cx)
+                    val teeth = sin(angle * 6.0).toFloat()
+                    if (teeth > -0.2f) {
+                        grid[r][c] = if (dist <= 6.5f) AetherColor.AURORA_VIOLET else AetherColor.ASTRAL_CYAN
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Realm 5: Muspelheim - Surtr Flame Core (Gold, Cyan, Violet, Crimson Flame)
      */
     private fun generateMuspelCore(cx: Float, cy: Float) {
         for (r in 0 until rows) {
             for (c in 0 until cols) {
                 val manhattan = kotlin.math.abs(c - cx) + kotlin.math.abs(r - cy)
-                if (manhattan <= 9.5f) {
+                if (manhattan <= 9.8f) {
                     when {
-                        manhattan <= 3.0f -> grid[r][c] = AetherColor.CRIMSON_FLAME
-                        manhattan <= 5.5f -> grid[r][c] = AetherColor.AURORA_VIOLET
-                        manhattan <= 7.5f -> grid[r][c] = AetherColor.ASTRAL_CYAN
+                        manhattan <= 3.2f -> grid[r][c] = AetherColor.CRIMSON_FLAME
+                        manhattan <= 5.8f -> grid[r][c] = AetherColor.AURORA_VIOLET
+                        manhattan <= 7.8f -> grid[r][c] = AetherColor.ASTRAL_CYAN
                         else -> grid[r][c] = AetherColor.SOLAR_GOLD
                     }
                 }
@@ -136,7 +161,31 @@ class SandArtMatrix(
     }
 
     /**
-     * Level 5: Yggdrasil World Tree (All 5 Celestial Frequencies)
+     * Realm 6: Niflheim - Frost Mist Crystal (Cyan, Violet, Emerald, Crimson)
+     */
+    private fun generateNiflheimSnowflake(cx: Float, cy: Float) {
+        for (r in 0 until rows) {
+            for (c in 0 until cols) {
+                val dx = kotlin.math.abs(c - cx)
+                val dy = kotlin.math.abs(r - cy)
+                val dist = hypot(dx, dy)
+                if (dist <= 9.2f) {
+                    val onAxis = dx < 1.5f || dy < 1.5f
+                    val onDiagonal = kotlin.math.abs(dx - dy) < 1.5f
+                    if (onAxis || onDiagonal) {
+                        when {
+                            dist <= 3.5f -> grid[r][c] = AetherColor.ASTRAL_CYAN
+                            dist <= 6.5f -> grid[r][c] = AetherColor.EMERALD_YGGDRASIL
+                            else -> grid[r][c] = AetherColor.AURORA_VIOLET
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Realm 7: Yggdrasil - The World Tree Convergence (All 5 Colors)
      */
     private fun generateYggdrasilTree(cx: Float, cy: Float) {
         for (r in 0 until rows) {
@@ -144,15 +193,13 @@ class SandArtMatrix(
                 val dx = kotlin.math.abs(c - cx)
                 val dy = r - cy
                 val dist = hypot(dx, dy)
-                // Tree trunk & roots
-                if (dx <= 1.5f && r >= cy) {
+                if (dx <= 1.8f && r >= cy) {
                     grid[r][c] = AetherColor.SOLAR_GOLD
-                } else if (dist <= 8.5f && r < cy + 2f) {
-                    // Foliage foliage layers
+                } else if (dist <= 9.0f && r < cy + 2f) {
                     when {
-                        r < cy - 4f -> grid[r][c] = AetherColor.EMERALD_YGGDRASIL
-                        r < cy - 1f -> grid[r][c] = AetherColor.ASTRAL_CYAN
-                        r < cy + 1f -> grid[r][c] = AetherColor.AURORA_VIOLET
+                        r < cy - 4.5f -> grid[r][c] = AetherColor.EMERALD_YGGDRASIL
+                        r < cy - 1.5f -> grid[r][c] = AetherColor.ASTRAL_CYAN
+                        r < cy + 1.0f -> grid[r][c] = AetherColor.AURORA_VIOLET
                         else -> grid[r][c] = AetherColor.CRIMSON_FLAME
                     }
                 }
@@ -161,13 +208,24 @@ class SandArtMatrix(
     }
 
     /**
-     * Attempts to drain a grain from the bottom of a specific column.
-     * When drained, the sand column above settles down automatically.
+     * Mode: Endless / Nexus Incursion (Procedurally generated concentric mandala)
      */
+    private fun generateEndlessProcedural(cx: Float, cy: Float) {
+        val allColors = AetherColor.entries.toTypedArray()
+        for (r in 0 until rows) {
+            for (c in 0 until cols) {
+                val dist = hypot(c - cx, r - cy)
+                if (dist in 1.5f..9.5f) {
+                    val ringIndex = (dist / 2.0f).toInt() % allColors.size
+                    grid[r][c] = allColors[ringIndex]
+                }
+            }
+        }
+    }
+
     fun drainGrainAtColumn(col: Int, targetColor: AetherColor? = null): AetherColor? {
         if (col !in 0 until cols) return null
 
-        // Search from bottom row up to find lowest grain in this column
         for (r in rows - 1 downTo 0) {
             val grain = grid[r][col]
             if (grain != null) {
@@ -175,7 +233,6 @@ class SandArtMatrix(
                     grid[r][col] = null
                     remainingGrainCount--
 
-                    // Collapse sand column above this row down by 1
                     for (k in r downTo 1) {
                         grid[k][col] = grid[k - 1][col]
                     }
@@ -183,21 +240,6 @@ class SandArtMatrix(
 
                     return grain
                 }
-            }
-        }
-        return null
-    }
-
-    /**
-     * Finds the lowest available grain color in a range of columns near a funnel.
-     */
-    fun peekLowestGrainColor(colStart: Int, colEnd: Int): AetherColor? {
-        val start = colStart.coerceIn(0, cols - 1)
-        val end = colEnd.coerceIn(0, cols - 1)
-        for (r in rows - 1 downTo 0) {
-            for (c in start..end) {
-                val grain = grid[r][c]
-                if (grain != null) return grain
             }
         }
         return null

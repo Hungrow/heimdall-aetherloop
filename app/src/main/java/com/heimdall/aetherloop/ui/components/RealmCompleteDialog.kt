@@ -8,13 +8,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -24,13 +25,14 @@ import com.heimdall.aetherloop.game.model.RealmLevel
 import com.heimdall.aetherloop.ui.theme.*
 
 /**
- * Realm Victory Celebration Dialog.
+ * Realm Victory Celebration Dialog with 3-Star Rating and High Scores.
  */
 @Composable
 fun RealmCompleteDialog(
     level: RealmLevel,
-    totalHarvested: Int,
-    spillCount: Int,
+    score: Int,
+    stars: Int,
+    isNewHighScore: Boolean,
     onNextLevel: () -> Unit,
     onReplay: () -> Unit
 ) {
@@ -78,32 +80,49 @@ fun RealmCompleteDialog(
                     letterSpacing = 1.sp
                 )
 
+                // 3 STARS ROW
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    for (i in 1..3) {
+                        val isAchieved = i <= stars
+                        Icon(
+                            imageVector = if (isAchieved) Icons.Default.Star else Icons.Default.StarBorder,
+                            contentDescription = null,
+                            tint = if (isAchieved) HeimdallGold else TextMuted,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
+                }
+
                 Text(
-                    text = "Has sellado las fisuras de ${level.realmName} y armonizado el flujo del Bifröst.",
+                    text = "Has disuelto el mosaico sagrado de ${level.realmName} y sellado el portal.",
                     color = TextSecondary,
-                    fontSize = 14.sp,
+                    fontSize = 13.sp,
                     textAlign = TextAlign.Center
                 )
 
-                // Stats Panel
-                Row(
+                // Score Panel
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(14.dp))
                         .background(CosmosCard)
                         .padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceAround
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("ÉTER COLECTADO", color = TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                        Text("$totalHarvested", color = BifrostCyan, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("EFICIENCIA", color = TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                        val efficiency = if (totalHarvested + spillCount > 0) {
-                            ((totalHarvested.toFloat() / (totalHarvested + spillCount)) * 100).toInt()
-                        } else 100
-                        Text("$efficiency%", color = YggdrasilGreen, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text("PUNTUACIÓN OBTENIDA", color = TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text("$score", color = BifrostCyan, fontSize = 24.sp, fontWeight = FontWeight.Black)
+
+                    if (isNewHighScore) {
+                        Text(
+                            text = "★ ¡NUEVO RÉCORD DEL REINO! ★",
+                            color = HeimdallGold,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
                     }
                 }
 

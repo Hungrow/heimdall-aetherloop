@@ -14,6 +14,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
@@ -32,7 +33,7 @@ import kotlin.math.sin
  * High-performance hardware-accelerated Game Canvas.
  *
  * Renders the Sand Art Mosaic, discharge hoppers, moving conveyor belt,
- * falling stardust particles, and resonance vessels at 60 FPS.
+ * falling stardust particles, splash sparks, floating scores, and resonance vessels at 60 FPS.
  */
 @Composable
 fun GameCanvasView(
@@ -50,39 +51,42 @@ fun GameCanvasView(
                 }
             }
     ) {
-        // Essential: register frameTick state read so Compose redraws every frame!
+        // Register frameTick state read so Compose redraws every single frame
         val currentTick = frameTick
 
         val w = size.width
         val h = size.height
 
-        // 1. Draw Deep Cosmos Background
-        drawCosmicBackground(w, h)
+        // 1. Draw Deep Cosmos Background & Parallax Nebulae
+        drawCosmicBackground(w, h, engine.isChronoActive.value, engine.isGjallarhornActive.value)
 
-        // 2. Draw the Sacred Sand Art Mosaic Matrix (Relic being deconstructed)
+        // 2. Draw Sand Art Mosaic Matrix (The sacred relic dissolving)
         drawSandArtMatrix(engine.sandMatrix, w, h)
 
-        // 3. Draw Discharge Funnels beneath the Sand Art
+        // 3. Draw Laser Targeting Guide Beams from Funnels to Conveyor
+        for (conduit in engine.conduits) {
+            drawLaserGuide(conduit, w, h, engine.track.top)
+        }
+
+        // 4. Draw Funnels / Chutes
         for (conduit in engine.conduits) {
             drawConduitFunnel(conduit, w, h)
         }
 
-        // 4. Draw Conveyor Belt Loop Circuit with moving tread indicators
+        // 5. Draw Conveyor Belt Loop Circuit with Pulleys
         drawConveyorBelt(engine.track, engine.track.beltScrollOffset)
 
-        // 5. Draw Active Falling Sand Particles
+        // 6. Draw Active Falling Sand Particles
         val particleCount = engine.particleEngine.activeParticlesCount
         val particles = engine.particleEngine.getParticlesArray()
         for (i in 0 until particleCount) {
             val p = particles[i]
             if (p.isActive) {
-                // Outer glow
                 drawCircle(
                     color = p.color.glowColor.copy(alpha = 0.55f * p.alpha),
                     radius = p.radius * 2.2f,
                     center = Offset(p.x, p.y)
                 )
-                // Particle Core
                 drawCircle(
                     color = p.color.color.copy(alpha = p.alpha),
                     radius = p.radius,
@@ -91,45 +95,88 @@ fun GameCanvasView(
             }
         }
 
-        // 6. Draw Resonance Vessels on the Conveyor Loop
+        // 7. Draw Splash Sparks (Micro-droplets upon container entry)
+        val sparks = engine.particleEngine.splashSparks
+        for (spark in sparks) {
+            drawCircle(
+                color = spark.color.color.copy(alpha = spark.alpha),
+                radius = 2.4f,
+                center = Offset(spark.x, spark.y)
+            )
+        }
+
+        // 8. Draw Resonance Vessels on Conveyor
         val tempPoint = PointF()
         for (vessel in engine.activeVessels) {
             drawVessel(vessel, engine.track, tempPoint, w, h)
         }
+
+        // 9. Draw Floating Combat / Score Text
+        val texts = engine.particleEngine.floatingTexts
+        drawContext.canvas.nativeCanvas.apply {
+            val paint = Paint().apply {
+                textSize = 24f
+                textAlign = Paint.Align.CENTER
+                typeface = Typeface.DEFAULT_BOLD
+                isAntiAlias = true
+            }
+            for (ft in texts) {
+                paint.color = ft.color.copy(alpha = ft.alpha).toArgb()
+                drawText(ft.text, ft.x, ft.y, paint)
+            }
+        }
     }
 }
 
-private fun DrawScope.drawCosmicBackground(w: Float, h: Float) {
+private fun DrawScope.drawCosmicBackground(
+    w: Float,
+    h: Float,
+    isChronoActive: Boolean,
+    isGjallarhornActive: Boolean
+) {
+    val topColor = when {
+        isChronoActive -> Color(0xFF021B29)
+        isGjallarhornActive -> Color(0xFF291B02)
+        else -> Color(0xFF04060E)
+    }
+
     drawRect(
         brush = Brush.verticalGradient(
             colors = listOf(
-                Color(0xFF04060E),
+                topColor,
                 Color(0xFF090D1C),
                 Color(0xFF050813)
             )
         )
     )
 
-    // Ambient starlight nebula
+    // Starlight nebula
     drawCircle(
         brush = Brush.radialGradient(
-            colors = listOf(Color(0x2200E5FF), Color.Transparent),
+            colors = listOf(
+                if (isGjallarhornActive) Color(0x33FFD700) else Color(0x2200E5FF),
+                Color.Transparent
+            ),
             center = Offset(w * 0.5f, h * 0.35f),
             radius = w * 0.7f
         )
     )
-    drawCircle(
-        brush = Brush.radialGradient(
-            colors = listOf(Color(0x1AD500F9), Color.Transparent),
-            center = Offset(w * 0.8f, h * 0.70f),
-            radius = w * 0.6f
-        )
+}
+
+private fun DrawScope.drawLaserGuide(conduit: Conduit, w: Float, h: Float, trackTop: Float) {
+    val cx = conduit.xNorm * w
+    val startY = conduit.yNorm * h + 8f
+    val endY = trackTop
+
+    drawLine(
+        color = if (conduit.isOpen) conduit.color.color.copy(alpha = 0.45f) else Color(0x1AFFFFFF),
+        start = Offset(cx, startY),
+        end = Offset(cx, endY),
+        strokeWidth = if (conduit.isOpen) 2.5f else 1.2f,
+        pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 10f), 0f)
     )
 }
 
-/**
- * Draws the Sand Art Mosaic grid. Each grain is rendered as a vibrant pixel.
- */
 private fun DrawScope.drawSandArtMatrix(matrix: SandArtMatrix, w: Float, h: Float) {
     val matrixLeft = w * 0.14f
     val matrixRight = w * 0.86f
@@ -141,7 +188,7 @@ private fun DrawScope.drawSandArtMatrix(matrix: SandArtMatrix, w: Float, h: Floa
 
     // Chassis Container Frame
     drawRoundRect(
-        color = CosmosSurface.copy(alpha = 0.7f),
+        color = CosmosSurface.copy(alpha = 0.75f),
         topLeft = Offset(matrixLeft - 8f, matrixTop - 8f),
         size = Size(matrixWidth + 16f, matrixHeight + 16f),
         cornerRadius = CornerRadius(16f, 16f)
@@ -173,16 +220,12 @@ private fun DrawScope.drawSandArtMatrix(matrix: SandArtMatrix, w: Float, h: Floa
     }
 }
 
-/**
- * Draws the Asgardian discharge funnels directly below the sand art frame.
- */
 private fun DrawScope.drawConduitFunnel(conduit: Conduit, w: Float, h: Float) {
     val cx = conduit.xNorm * w
     val cy = conduit.yNorm * h
     val funnelWidth = 36f
     val funnelHeight = 24f
 
-    // Funnel geometry (wedge shape pointing down)
     val path = Path().apply {
         moveTo(cx - funnelWidth / 2f, cy - funnelHeight)
         lineTo(cx + funnelWidth / 2f, cy - funnelHeight)
@@ -206,7 +249,7 @@ private fun DrawScope.drawConduitFunnel(conduit: Conduit, w: Float, h: Float) {
         style = Stroke(width = 2f)
     )
 
-    // Glowing aperture nozzle
+    // Nozzle
     drawCircle(
         color = if (conduit.isOpen) conduit.color.color else Color(0xFF334155),
         radius = 8f,
@@ -221,15 +264,12 @@ private fun DrawScope.drawConduitFunnel(conduit: Conduit, w: Float, h: Float) {
     }
 }
 
-/**
- * Draws the conveyor belt with moving directional indicators.
- */
 private fun DrawScope.drawConveyorBelt(track: BifrostTrack, beltOffset: Float) {
     val trackWidth = track.right - track.left
     val trackHeight = track.bottom - track.top
     val r = track.cornerRadius
 
-    // 1. Conveyor Belt Bed (Dark Rubber/Nanotech Track)
+    // 1. Conveyor Belt Bed
     drawRoundRect(
         color = Color(0xFF0F172A),
         topLeft = Offset(track.left - 16f, track.top - 16f),
@@ -254,7 +294,20 @@ private fun DrawScope.drawConveyorBelt(track: BifrostTrack, beltOffset: Float) {
         style = Stroke(width = 2.5f)
     )
 
-    // 3. Animated Moving Belt Treads / Light Pulses
+    // 3. Corner Pulleys / Gears
+    val pulleyRadius = 14f
+    val corners = listOf(
+        Offset(track.left + r, track.top + r),
+        Offset(track.right - r, track.top + r),
+        Offset(track.right - r, track.bottom - r),
+        Offset(track.left + r, track.bottom - r)
+    )
+    for (corner in corners) {
+        drawCircle(color = Color(0xFF1E293B), radius = pulleyRadius, center = corner)
+        drawCircle(color = BifrostCyan.copy(alpha = 0.5f), radius = pulleyRadius, center = corner, style = Stroke(2f))
+    }
+
+    // 4. Animated Moving Belt Treads
     val numTreads = 36
     val tempPoint = PointF()
     for (i in 0 until numTreads) {
@@ -268,9 +321,6 @@ private fun DrawScope.drawConveyorBelt(track: BifrostTrack, beltOffset: Float) {
     }
 }
 
-/**
- * Draws a resonance vessel traveling along the conveyor.
- */
 private fun DrawScope.drawVessel(
     vessel: Vessel,
     track: BifrostTrack,
@@ -349,7 +399,7 @@ private fun DrawScope.drawVessel(
             style = Stroke(width = if (vessel.isFull) 3.5f else 2.2f)
         )
 
-        // Container Wheels / Track Bearings
+        // Wheels
         drawCircle(
             color = Color(0xFF64748B),
             radius = 4f,
@@ -361,7 +411,7 @@ private fun DrawScope.drawVessel(
             center = Offset(left + vesselWidth - 8f, top + vesselHeight + 2f)
         )
 
-        // Vessel Fill Count Text & Rune
+        // Vessel Rune & Fill text
         drawContext.canvas.nativeCanvas.apply {
             val paint = Paint().apply {
                 color = android.graphics.Color.WHITE
