@@ -1,0 +1,17 @@
+*.iml
+.gradle
+/local.properties
+/.idea/
+.DS_Store
+build/
+*/build/
+app/build/
+/captures
+.externalNativeBuild
+.cxx
+*.apk
+*.ap_
+*.aab
+releases/
+uptodown-com.pc.sand.loop.apk
+release.keystore
