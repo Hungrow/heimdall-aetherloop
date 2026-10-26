@@ -10,7 +10,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.*
@@ -23,7 +22,6 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.heimdall.aetherloop.game.engine.GameLoopEngine
@@ -33,7 +31,8 @@ import com.heimdall.aetherloop.ui.theme.*
 /**
  * Modern Heimdall Glassmorphic HUD.
  *
- * Displays realm objectives, upcoming launch queue, speed modifiers, and launch triggers.
+ * Displays realm objectives, sand art deconstruction progress, upcoming launch queue,
+ * and dispatch triggers.
  */
 @Composable
 fun HudOverlay(
@@ -42,86 +41,99 @@ fun HudOverlay(
     modifier: Modifier = Modifier
 ) {
     val level = engine.currentLevel
-    val completedConduits = engine.conduits.count { it.isHarvestComplete }
-    val totalConduits = engine.conduits.size
+    val clearedPercent = (engine.clearedProgress.floatValue * 100f).toInt()
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 20.dp),
+            .padding(horizontal = 16.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         // TOP STATUS BAR
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(18.dp))
-                .background(CosmosSurface.copy(alpha = 0.85f))
-                .border(1.dp, CosmosBorder, RoundedCornerShape(18.dp))
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .clip(RoundedCornerShape(20.dp))
+                .background(CosmosSurface.copy(alpha = 0.90f))
+                .border(1.dp, CosmosBorder, RoundedCornerShape(20.dp))
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Column {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "HEIMDALL",
+                            color = HeimdallGold,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 2.sp
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "• ${level.realmName.uppercase()}",
+                            color = BifrostCyan,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Text(
+                        text = level.subtitle,
+                        color = TextSecondary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "HEIMDALL",
-                        color = HeimdallGold,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 2.sp
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "• ${level.realmName.uppercase()}",
-                        color = BifrostCyan,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                Text(
-                    text = level.subtitle,
-                    color = TextSecondary,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(CosmosCard)
+                            .border(1.dp, BifrostCyan.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = "$clearedPercent% RECOLECTADO",
+                            color = TextPrimary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                // Sealed Conduits Badge
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(CosmosCard)
-                        .border(1.dp, BifrostCyan.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = "$completedConduits/$totalConduits SELLADOS",
-                        color = TextPrimary,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                    Spacer(modifier = Modifier.width(8.dp))
 
-                Spacer(modifier = Modifier.width(8.dp))
-
-                // Settings Button
-                IconButton(
-                    onClick = onOpenSettings,
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(CosmosCard)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Ajustes",
-                        tint = TextPrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
+                    IconButton(
+                        onClick = onOpenSettings,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(CosmosCard)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Ajustes",
+                            tint = TextPrimary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
+
+            // Linear Progress Bar for Artwork Deconstruction
+            LinearProgressIndicator(
+                progress = { engine.clearedProgress.floatValue },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp)),
+                color = HeimdallGold,
+                trackColor = CosmosCard
+            )
         }
 
         // BOTTOM CONTROLS & DISPATCH BAR
@@ -129,7 +141,7 @@ fun HudOverlay(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(24.dp))
-                .background(CosmosSurface.copy(alpha = 0.92f))
+                .background(CosmosSurface.copy(alpha = 0.94f))
                 .border(1.dp, CosmosBorder, RoundedCornerShape(24.dp))
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -169,16 +181,17 @@ fun HudOverlay(
                                 .background(CosmosCard)
                                 .border(
                                     1.dp,
-                                    engine.heldVesselColor?.color ?: CosmosBorder,
+                                    engine.heldVesselColor.value?.color ?: CosmosBorder,
                                     RoundedCornerShape(12.dp)
                                 )
                                 .clickable { engine.swapHeldColor() },
                             contentAlignment = Alignment.Center
                         ) {
-                            if (engine.heldVesselColor != null) {
+                            val held = engine.heldVesselColor.value
+                            if (held != null) {
                                 Text(
-                                    text = engine.heldVesselColor!!.runeSymbol,
-                                    color = engine.heldVesselColor!!.color,
+                                    text = held.runeSymbol,
+                                    color = held.color,
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -201,14 +214,15 @@ fun HudOverlay(
 
                     // Warp Speed Toggle
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        val isWarp = engine.isWarpSpeed.value
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(if (engine.isWarpSpeed) BifrostCyan.copy(alpha = 0.25f) else CosmosCard)
+                                .background(if (isWarp) BifrostCyan.copy(alpha = 0.25f) else CosmosCard)
                                 .border(
                                     1.dp,
-                                    if (engine.isWarpSpeed) BifrostCyan else CosmosBorder,
+                                    if (isWarp) BifrostCyan else CosmosBorder,
                                     RoundedCornerShape(12.dp)
                                 )
                                 .clickable { engine.toggleWarpSpeed() },
@@ -217,13 +231,13 @@ fun HudOverlay(
                             Icon(
                                 imageVector = Icons.Default.FastForward,
                                 contentDescription = "Velocidad",
-                                tint = if (engine.isWarpSpeed) BifrostCyan else TextSecondary,
+                                tint = if (isWarp) BifrostCyan else TextSecondary,
                                 modifier = Modifier.size(22.dp)
                             )
                         }
                         Text(
-                            text = if (engine.isWarpSpeed) "1.6X WARP" else "1.0X VEL",
-                            color = if (engine.isWarpSpeed) BifrostCyan else TextMuted,
+                            text = if (isWarp) "1.6X WARP" else "1.0X VEL",
+                            color = if (isWarp) BifrostCyan else TextMuted,
                             fontSize = 8.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -239,7 +253,7 @@ fun HudOverlay(
                 initialValue = 1.0f,
                 targetValue = 1.02f,
                 animationSpec = infiniteRepeatable(
-                    animation = tween(900, easing = FastOutSlowInEasing),
+                    animation = tween(850, easing = FastOutSlowInEasing),
                     repeatMode = RepeatMode.Reverse
                 ),
                 label = "scale"
@@ -264,7 +278,7 @@ fun HudOverlay(
                             Brush.horizontalGradient(
                                 colors = listOf(
                                     nextColor.color,
-                                    nextColor.color.copy(alpha = 0.8f)
+                                    nextColor.color.copy(alpha = 0.85f)
                                 )
                             )
                         ),

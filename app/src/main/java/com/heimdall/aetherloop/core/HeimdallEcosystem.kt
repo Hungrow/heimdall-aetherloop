@@ -13,8 +13,8 @@ object HeimdallEcosystem {
     const val ECOSYSTEM_NAME = "Heimdall Universe"
     const val APP_NAME = "Heimdall: AetherLoop"
     const val MODULE_ID = "heimdall.ecosystem.aetherloop"
-    const val VERSION_NAME = "1.0.0"
-    const val VERSION_CODE = 1
+    const val VERSION_NAME = "1.0.1"
+    const val VERSION_CODE = 2
 
     const val GITHUB_REPO_OWNER = "Hungrow"
     const val GITHUB_REPO_NAME = "heimdall-aetherloop"

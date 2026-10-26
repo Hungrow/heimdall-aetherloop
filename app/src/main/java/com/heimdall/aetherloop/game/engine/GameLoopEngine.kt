@@ -1,5 +1,9 @@
 package com.heimdall.aetherloop.game.engine
 
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import com.heimdall.aetherloop.core.HapticManager
 import com.heimdall.aetherloop.core.SoundSynthesizer
 import com.heimdall.aetherloop.game.model.*
@@ -21,14 +25,15 @@ enum class GameState {
 /**
  * Master Game Loop Engine for Heimdall: AetherLoop.
  *
- * Coordinates track mathematics, granular particle physics, vessel queues,
- * level progression, victory/defeat triggers, and ASMR audio.
+ * Coordinates track mathematics, SandArt deconstruction, granular particle physics,
+ * vessel queues, and level progression with Compose-reactive state collections.
  */
 class GameLoopEngine(
     val soundSynthesizer: SoundSynthesizer,
     val hapticManager: HapticManager
 ) {
     val track = BifrostTrack()
+    val sandMatrix = SandArtMatrix(cols = 26, rows = 20)
     val particleEngine = ParticleEngine(
         soundSynthesizer = soundSynthesizer,
         hapticManager = hapticManager
@@ -39,18 +44,15 @@ class GameLoopEngine(
     var currentLevel: RealmLevel = RealmLevel.ALL_LEVELS.first()
         private set
 
-    val activeVessels = mutableListOf<Vessel>()
-    val conduits = mutableListOf<Conduit>()
-    val vesselQueue = mutableListOf<AetherColor>()
+    // Compose Reactive Collections for instant 60 FPS UI synchronization
+    val activeVessels = mutableStateListOf<Vessel>()
+    val conduits = mutableStateListOf<Conduit>()
+    val vesselQueue = mutableStateListOf<AetherColor>()
 
-    var heldVesselColor: AetherColor? = null
-        private set
-
-    var isWarpSpeed: Boolean = false
-    var totalHarvested: Int = 0
-        private set
-    var spillCount: Int = 0
-        private set
+    val heldVesselColor = mutableStateOf<AetherColor?>(null)
+    val isWarpSpeed = mutableStateOf(false)
+    val clearedProgress = mutableFloatStateOf(0f)
+    val totalHarvested = mutableIntStateOf(0)
 
     private val _gameState = MutableStateFlow(GameState.READY)
     val gameState: StateFlow<GameState> = _gameState.asStateFlow()
@@ -60,17 +62,14 @@ class GameLoopEngine(
 
     init {
         particleEngine.onVesselCompleted = { vessel ->
-            // Vessel absorbed max energy!
-            // It will trigger glowing aura and fly/dock into Asgard constellation
-            totalHarvested += vessel.capacity
-            checkWinCondition()
+            totalHarvested.intValue += vessel.capacity
         }
 
-        particleEngine.onParticleSpilled = {
-            spillCount++
-            if (spillCount >= currentLevel.maxSpillAllowed && _gameState.value == GameState.PLAYING) {
-                // If spill tolerance is exceeded, level can either overload or provide warning
-                // For relaxing playability, we flag high-spill or void alert
+        particleEngine.onArtworkCleared = {
+            if (_gameState.value == GameState.PLAYING) {
+                _gameState.value = GameState.REALM_STABILIZED
+                soundSynthesizer.playRealmVictory()
+                hapticManager.onRealmComplete()
             }
         }
 
@@ -78,7 +77,7 @@ class GameLoopEngine(
     }
 
     /**
-     * Initializes a realm level.
+     * Initializes a realm level and generates the sand-art matrix.
      */
     fun loadLevel(index: Int) {
         val safeIndex = index.coerceIn(0, RealmLevel.ALL_LEVELS.lastIndex)
@@ -88,23 +87,63 @@ class GameLoopEngine(
         activeVessels.clear()
         conduits.clear()
         vesselQueue.clear()
-        vesselQueue.addAll(currentLevel.availableVesselQueue)
-        heldVesselColor = null
-        isWarpSpeed = false
-        totalHarvested = 0
-        spillCount = 0
+        heldVesselColor.value = null
+        isWarpSpeed.value = false
+        totalHarvested.intValue = 0
+        clearedProgress.floatValue = 0f
 
-        // Set up conduits positioned evenly along top
-        val colorCount = currentLevel.colors.size
-        for (i in 0 until colorCount) {
-            val normX = if (colorCount == 1) 0.5f else 0.22f + (i.toFloat() / (colorCount - 1).toFloat()) * 0.56f
+        // 1. Load the Sand Art Matrix for this level
+        sandMatrix.loadPattern(safeIndex)
+
+        // 2. Build Conduits / Funnels beneath the Sand Art
+        val colors = currentLevel.colors
+        val numConduits = colors.size
+        val colStep = sandMatrix.cols / numConduits
+
+        for (i in 0 until numConduits) {
+            val colStart = i * colStep
+            val colEnd = ((i + 1) * colStep - 1).coerceAtMost(sandMatrix.cols - 1)
+            val centerCol = (colStart + colEnd) / 2f
+            val normX = 0.22f + (centerCol / sandMatrix.cols.toFloat()) * 0.56f
+
             conduits.add(
                 Conduit(
                     id = i,
-                    color = currentLevel.colors[i],
+                    color = colors[i],
+                    colRangeStart = colStart,
+                    colRangeEnd = colEnd,
                     xNorm = normX,
-                    yNorm = 0.14f,
-                    totalRequired = currentLevel.particlesPerConduit
+                    yNorm = 0.47f
+                )
+            )
+        }
+
+        // 3. Populate Vessel Queue
+        vesselQueue.addAll(currentLevel.availableVesselQueue)
+        if (vesselQueue.size < 6) {
+            vesselQueue.addAll(currentLevel.availableVesselQueue)
+        }
+
+        // 4. Pre-spawn 2 initial vessels on the track so the game is immediately in action!
+        if (vesselQueue.isNotEmpty()) {
+            val firstColor = vesselQueue.removeAt(0)
+            activeVessels.add(
+                Vessel(
+                    id = vesselIdGenerator.incrementAndGet(),
+                    color = firstColor,
+                    trackProgress = 0.05f, // Arriving onto top straight
+                    capacity = 30
+                )
+            )
+        }
+        if (vesselQueue.isNotEmpty()) {
+            val secondColor = vesselQueue.removeAt(0)
+            activeVessels.add(
+                Vessel(
+                    id = vesselIdGenerator.incrementAndGet(),
+                    color = secondColor,
+                    trackProgress = 0.60f, // Traveling around bottom
+                    capacity = 30
                 )
             )
         }
@@ -120,7 +159,6 @@ class GameLoopEngine(
         if (_levelIndex.value < RealmLevel.ALL_LEVELS.lastIndex) {
             loadLevel(_levelIndex.value + 1)
         } else {
-            // Loop back to beginning or master loop
             loadLevel(0)
         }
     }
@@ -130,8 +168,18 @@ class GameLoopEngine(
      */
     fun dispatchNextVessel(): Boolean {
         if (_gameState.value != GameState.PLAYING) return false
+
+        // Check if there's enough space near the launch zone
+        val spawnProgress = 0.65f
+        val isOccupied = activeVessels.any {
+            kotlin.math.abs(it.trackProgress - spawnProgress) < 0.12f
+        }
+        if (isOccupied && activeVessels.size >= 5) {
+            // Wait slightly so vessels don't overlap awkwardly
+            return false
+        }
+
         if (vesselQueue.isEmpty()) {
-            // Replenish from level pool if queue is depleted
             vesselQueue.addAll(currentLevel.availableVesselQueue)
         }
 
@@ -139,8 +187,8 @@ class GameLoopEngine(
         val newVessel = Vessel(
             id = vesselIdGenerator.incrementAndGet(),
             color = color,
-            trackProgress = 0.65f, // Spawns on bottom straight or left vertical track
-            capacity = 35
+            trackProgress = spawnProgress,
+            capacity = 30
         )
         activeVessels.add(newVessel)
         soundSynthesizer.playLaunchWhoosh()
@@ -148,22 +196,22 @@ class GameLoopEngine(
     }
 
     /**
-     * Swaps the upcoming vessel in queue with the held slot.
+     * Swaps the upcoming vessel with the held slot.
      */
     fun swapHeldColor() {
         if (vesselQueue.isEmpty()) return
         val currentFront = vesselQueue.removeAt(0)
-        if (heldVesselColor == null) {
-            heldVesselColor = currentFront
+        val held = heldVesselColor.value
+        if (held == null) {
+            heldVesselColor.value = currentFront
         } else {
-            val prevHeld = heldVesselColor!!
-            heldVesselColor = currentFront
-            vesselQueue.add(0, prevHeld)
+            heldVesselColor.value = currentFront
+            vesselQueue.add(0, held)
         }
     }
 
     fun toggleWarpSpeed() {
-        isWarpSpeed = !isWarpSpeed
+        isWarpSpeed.value = !isWarpSpeed.value
     }
 
     /**
@@ -174,57 +222,51 @@ class GameLoopEngine(
 
         track.updateDimensions(width, height)
 
-        val speedMultiplier = if (isWarpSpeed) 1.6f else 1.0f
+        val speedMultiplier = if (isWarpSpeed.value) 1.65f else 1.0f
         val effectiveSpeed = currentLevel.baseTrackSpeed * speedMultiplier
 
-        // Update active vessels along the track
+        track.beltScrollOffset = (track.beltScrollOffset + effectiveSpeed * dt * 6f) % 1.0f
+
+        // 1. Update Vessels
         val iterator = activeVessels.iterator()
         while (iterator.hasNext()) {
             val vessel = iterator.next()
 
             vessel.trackProgress = (vessel.trackProgress + effectiveSpeed * dt) % 1.0f
-            vessel.liquidWaveOffset += dt * 5f
+            vessel.liquidWaveOffset += dt * 6f
 
             if (vessel.fullFlashAnim > 0f) {
-                vessel.fullFlashAnim = (vessel.fullFlashAnim - dt * 2f).coerceAtLeast(0f)
+                vessel.fullFlashAnim = (vessel.fullFlashAnim - dt * 2.5f).coerceAtLeast(0f)
             }
 
-            // If vessel is full and completed its victory lap back to launch zone, it docks
+            // Once a full vessel completes its lap back to the dock (left straight near 0.70f), it retires
             if (vessel.isFull && vessel.state == VesselState.ON_TRACK && vessel.fullFlashAnim <= 0f) {
-                // Dock into constellation matrix after completing lap
-                if (vessel.trackProgress in 0.55f..0.65f) {
+                if (vessel.trackProgress in 0.68f..0.78f) {
                     vessel.state = VesselState.DOCKING
                 }
             }
 
             if (vessel.state == VesselState.DOCKING) {
                 iterator.remove()
+                // Auto-replenish queue so the belt is always lively
+                if (vesselQueue.size < 4) {
+                    vesselQueue.addAll(currentLevel.availableVesselQueue)
+                }
             }
         }
 
-        // Update physics and particle emissions
+        // 2. Update Granular Particle Physics & Sand Matrix deconstruction
         particleEngine.update(
             dt = dt,
             width = width,
             height = height,
+            sandMatrix = sandMatrix,
             conduits = conduits,
             vessels = activeVessels,
             track = track,
-            flowRatePerSec = currentLevel.flowRatePerSec
+            flowRatePerSec = currentLevel.flowRatePerSec * 2.5f // Energetic flow
         )
 
-        checkWinCondition()
-    }
-
-    private fun checkWinCondition() {
-        if (_gameState.value != GameState.PLAYING) return
-
-        // All conduits sealed
-        val allConduitsDone = conduits.all { it.isHarvestComplete }
-        if (allConduitsDone) {
-            _gameState.value = GameState.REALM_STABILIZED
-            soundSynthesizer.playRealmVictory()
-            hapticManager.onRealmComplete()
-        }
+        clearedProgress.floatValue = sandMatrix.clearedRatio
     }
 }

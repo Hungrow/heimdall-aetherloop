@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.unit.toSize
 import androidx.lifecycle.lifecycleScope
 import com.heimdall.aetherloop.core.HapticManager
 import com.heimdall.aetherloop.core.SoundSynthesizer
@@ -23,8 +22,8 @@ import kotlinx.coroutines.launch
 /**
  * Main Activity of Heimdall: AetherLoop.
  *
- * Implements a high-precision 60 FPS game loop and integrates the
- * in-device GitHub Releases OTA updater.
+ * Implements a continuous 60 FPS hardware-accelerated game loop with
+ * full-screen tap-to-dispatch mechanics and GitHub OTA updates.
  */
 class MainActivity : ComponentActivity() {
 
@@ -50,7 +49,9 @@ class MainActivity : ComponentActivity() {
                 var canvasWidth by remember { mutableFloatStateOf(1080f) }
                 var canvasHeight by remember { mutableFloatStateOf(1920f) }
 
-                // High precision 60 FPS frame ticker
+                // Continuous 60 FPS frame ticker triggering smooth Canvas redraws
+                var frameTick by remember { mutableLongStateOf(0L) }
+
                 LaunchedEffect(Unit) {
                     var lastNanos = 0L
                     while (isActive) {
@@ -60,6 +61,7 @@ class MainActivity : ComponentActivity() {
                                 engine.update(dt, canvasWidth, canvasHeight)
                             }
                             lastNanos = nowNanos
+                            frameTick = nowNanos
                         }
                     }
                 }
@@ -72,8 +74,12 @@ class MainActivity : ComponentActivity() {
                             canvasHeight = size.height.toFloat()
                         }
                 ) {
-                    // 1. Core Physics & Graphics Canvas
-                    GameCanvasView(engine = engine)
+                    // 1. Core Physics & Graphics Canvas with full-screen tap dispatch
+                    GameCanvasView(
+                        engine = engine,
+                        frameTick = frameTick,
+                        onTapScreen = { engine.dispatchNextVessel() }
+                    )
 
                     // 2. Interactive Glassmorphic HUD
                     HudOverlay(
@@ -85,8 +91,8 @@ class MainActivity : ComponentActivity() {
                     if (gameState == GameState.REALM_STABILIZED) {
                         RealmCompleteDialog(
                             level = engine.currentLevel,
-                            totalHarvested = engine.totalHarvested,
-                            spillCount = engine.spillCount,
+                            totalHarvested = engine.totalHarvested.intValue,
+                            spillCount = 0,
                             onNextLevel = { engine.nextLevel() },
                             onReplay = { engine.restartCurrentLevel() }
                         )
