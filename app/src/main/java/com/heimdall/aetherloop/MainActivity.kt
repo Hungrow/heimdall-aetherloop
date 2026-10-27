@@ -23,10 +23,16 @@ import com.heimdall.aetherloop.updater.GitHubUpdateManager
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
+enum class AppScreen {
+    WELCOME_SPLASH,
+    MAIN_MENU,
+    GAMEPLAY
+}
+
 /**
  * Main Activity of AetherLoop: Viking Combat.
  *
- * Implements true fullscreen Arkanoid naval battle against invading Viking fleets.
+ * Implements Welcome Screen, Main Menu with River Gjöll Map, and 60 FPS Arkanoid Combat.
  */
 class MainActivity : ComponentActivity() {
 
@@ -46,6 +52,7 @@ class MainActivity : ComponentActivity() {
         progressManager = PlayerProgressManager(this)
 
         soundSynthesizer.isMuted = !progressManager.isSoundEnabled()
+        soundSynthesizer.isMusicMuted = !progressManager.isMusicEnabled()
         hapticManager.isHapticsEnabled = progressManager.isHapticsEnabled()
 
         engine = VikingArkanoidEngine(soundSynthesizer, hapticManager, progressManager)
@@ -53,20 +60,29 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             HeimdallAetherLoopTheme {
+                var currentScreen by remember { mutableStateOf(AppScreen.WELCOME_SPLASH) }
                 var showSettings by remember { mutableStateOf(false) }
+
                 val updateState by updateManager.updateState.collectAsState()
                 val gameState by engine.gameState.collectAsState()
 
                 var canvasWidth by remember { mutableFloatStateOf(1080f) }
                 var canvasHeight by remember { mutableFloatStateOf(1920f) }
-
                 var frameTick by remember { mutableLongStateOf(0L) }
 
+                // Start Menu Music on startup if enabled
                 LaunchedEffect(Unit) {
+                    if (progressManager.isMusicEnabled()) {
+                        soundSynthesizer.startMenuMusic()
+                    }
+                }
+
+                // Main Gameplay Physics Loop
+                LaunchedEffect(currentScreen) {
                     var lastNanos = 0L
                     while (isActive) {
                         withFrameNanos { nowNanos ->
-                            if (lastNanos != 0L) {
+                            if (lastNanos != 0L && currentScreen == AppScreen.GAMEPLAY) {
                                 val dt = ((nowNanos - lastNanos) / 1_000_000_000.0).toFloat()
                                 engine.update(dt, canvasWidth, canvasHeight)
                             }
@@ -84,51 +100,106 @@ class MainActivity : ComponentActivity() {
                             canvasHeight = size.height.toFloat()
                         }
                 ) {
-                    // 1. Arkanoid Canvas (Longships, Paddle, Energy Balls, Splinters, Runes)
-                    ArkanoidCanvasView(
-                        engine = engine,
-                        frameTick = frameTick
-                    )
+                    when (currentScreen) {
+                        AppScreen.WELCOME_SPLASH -> {
+                            WelcomeSplashScreen(
+                                onEnter = {
+                                    currentScreen = AppScreen.MAIN_MENU
+                                    if (progressManager.isMusicEnabled()) {
+                                        soundSynthesizer.startMenuMusic()
+                                    }
+                                }
+                            )
+                        }
 
-                    // 2. Safe HUD Overlay (Score, Lives, Safe Settings Button)
-                    ArkanoidHudOverlay(
-                        engine = engine,
-                        onOpenSettings = { showSettings = true }
-                    )
+                        AppScreen.MAIN_MENU -> {
+                            MainMenuScreen(
+                                progressManager = progressManager,
+                                soundSynthesizer = soundSynthesizer,
+                                onStartCampaignLevel = { level ->
+                                    engine.loadCampaignLevel(level)
+                                    currentScreen = AppScreen.GAMEPLAY
+                                    if (progressManager.isMusicEnabled()) {
+                                        soundSynthesizer.startBattleMusic()
+                                    }
+                                },
+                                onStartEndlessMode = {
+                                    engine.loadEndlessWave(1)
+                                    currentScreen = AppScreen.GAMEPLAY
+                                    if (progressManager.isMusicEnabled()) {
+                                        soundSynthesizer.startBattleMusic()
+                                    }
+                                },
+                                onOpenSettings = { showSettings = true }
+                            )
+                        }
 
-                    // 3. Mission Briefing Modal (Battle Plan)
-                    if (gameState == GameState.MISSION_BRIEFING) {
-                        MissionBriefingDialog(
-                            wave = engine.currentWave.value,
-                            onStart = { engine.startWaveAction() }
-                        )
+                        AppScreen.GAMEPLAY -> {
+                            // 1. Arkanoid Hardware-Accelerated Canvas
+                            ArkanoidCanvasView(
+                                engine = engine,
+                                frameTick = frameTick
+                            )
+
+                            // 2. In-Game HUD Overlay
+                            ArkanoidHudOverlay(
+                                engine = engine,
+                                onOpenSettings = { showSettings = true }
+                            )
+
+                            // 3. Mission Briefing Modal
+                            if (gameState == GameState.MISSION_BRIEFING) {
+                                MissionBriefingDialog(
+                                    wave = engine.currentWave.value,
+                                    onStart = { engine.startWaveAction() }
+                                )
+                            }
+
+                            // 4. Wave Victory Modal
+                            if (gameState == GameState.REALM_STABILIZED) {
+                                RealmCompleteDialog(
+                                    wave = engine.currentWave.value,
+                                    score = engine.score.intValue,
+                                    stars = engine.earnedStars.intValue,
+                                    isNewHighScore = engine.isNewHighScore.value,
+                                    onNextLevel = { engine.nextWave() },
+                                    onReplay = { engine.restartCurrentWave() },
+                                    onReturnToMenu = {
+                                        currentScreen = AppScreen.MAIN_MENU
+                                        if (progressManager.isMusicEnabled()) {
+                                            soundSynthesizer.startMenuMusic()
+                                        }
+                                    }
+                                )
+                            }
+
+                            // 5. Defeat Modal
+                            if (gameState == GameState.VOID_OVERLOAD) {
+                                DefeatDialog(
+                                    wave = engine.currentWave.value,
+                                    onRetry = { engine.restartCurrentWave() },
+                                    onReturnToMenu = {
+                                        currentScreen = AppScreen.MAIN_MENU
+                                        if (progressManager.isMusicEnabled()) {
+                                            soundSynthesizer.startMenuMusic()
+                                        }
+                                    }
+                                )
+                            }
+                        }
                     }
 
-                    // 4. Wave Victory Modal
-                    if (gameState == GameState.REALM_STABILIZED) {
-                        RealmCompleteDialog(
-                            wave = engine.currentWave.value,
-                            score = engine.score.intValue,
-                            stars = engine.earnedStars.intValue,
-                            isNewHighScore = engine.isNewHighScore.value,
-                            onNextLevel = { engine.nextWave() },
-                            onReplay = { engine.restartCurrentWave() }
-                        )
-                    }
-
-                    // 5. Defeat Modal
-                    if (gameState == GameState.VOID_OVERLOAD) {
-                        DefeatDialog(
-                            wave = engine.currentWave.value,
-                            onRetry = { engine.restartCurrentWave() }
-                        )
-                    }
-
-                    // 6. Safe Settings & Wave Selector Modal
+                    // Global Settings Dialog
                     if (showSettings) {
                         SettingsDialog(
                             engine = engine,
                             onDismiss = { showSettings = false },
+                            onReturnToMenu = {
+                                currentScreen = AppScreen.MAIN_MENU
+                                if (progressManager.isMusicEnabled()) {
+                                    soundSynthesizer.startMenuMusic()
+                                }
+                            },
                             onCheckUpdate = {
                                 lifecycleScope.launch {
                                     updateManager.checkForUpdates()
@@ -137,7 +208,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // 7. In-Device GitHub Releases Updater Modal
+                    // In-Device GitHub Releases Updater Modal
                     UpdateDialog(
                         state = updateState,
                         onDismiss = { updateManager.dismiss() },
@@ -163,6 +234,18 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         hideSystemBars()
+        if (::soundSynthesizer.isInitialized && ::progressManager.isInitialized) {
+            if (progressManager.isMusicEnabled()) {
+                soundSynthesizer.startMenuMusic()
+            }
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if (::soundSynthesizer.isInitialized) {
+            soundSynthesizer.stopMusic()
+        }
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

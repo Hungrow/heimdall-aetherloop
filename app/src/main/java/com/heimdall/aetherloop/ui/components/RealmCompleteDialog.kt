@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
@@ -34,7 +35,8 @@ fun RealmCompleteDialog(
     stars: Int,
     isNewHighScore: Boolean,
     onNextLevel: () -> Unit,
-    onReplay: () -> Unit
+    onReplay: () -> Unit,
+    onReturnToMenu: () -> Unit
 ) {
     Dialog(onDismissRequest = {}) {
         Card(
@@ -47,15 +49,15 @@ fun RealmCompleteDialog(
         ) {
             Column(
                 modifier = Modifier
-                    .padding(24.dp)
+                    .padding(22.dp)
                     .fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(60.dp)
-                        .clip(RoundedCornerShape(18.dp))
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(16.dp))
                         .background(
                             Brush.linearGradient(
                                 colors = listOf(HeimdallGold, BifrostCyan)
@@ -72,33 +74,33 @@ fun RealmCompleteDialog(
                 }
 
                 Text(
-                    text = "¡FLOTA ENEMIGA HUNDIDA!",
+                    text = "¡VICTORIA EN EL FIORDO!",
                     color = HeimdallGold,
-                    fontSize = 20.sp,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 1.sp
                 )
 
-                // 3 STARS ROW
+                // 3 Stars Rating
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     for (i in 1..3) {
-                        val isAchieved = i <= stars
+                        val isLit = i <= stars
                         Icon(
-                            imageVector = if (isAchieved) Icons.Default.Star else Icons.Default.StarBorder,
+                            imageVector = if (isLit) Icons.Default.Star else Icons.Default.StarBorder,
                             contentDescription = null,
-                            tint = if (isAchieved) HeimdallGold else TextMuted,
+                            tint = if (isLit) HeimdallGold else TextMuted,
                             modifier = Modifier.size(36.dp)
                         )
                     }
                 }
 
                 Text(
-                    text = "Has hundido la escuadra invasora de ${wave.title} y protegido el fiordo.",
-                    color = TextSecondary,
-                    fontSize = 13.sp,
+                    text = "Has destruido la flota invasora y asegurado el umbral del fiordo.",
+                    color = TextPrimary,
+                    fontSize = 12.sp,
                     textAlign = TextAlign.Center
                 )
 
@@ -107,12 +109,12 @@ fun RealmCompleteDialog(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(14.dp))
                         .background(CosmosCard)
-                        .padding(14.dp),
+                        .padding(12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text("PUNTUACIÓN OBTENIDA", color = TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    Text("$score", color = BifrostCyan, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                    Text("$score", color = BifrostCyan, fontSize = 22.sp, fontWeight = FontWeight.Black)
 
                     if (isNewHighScore) {
                         Text(
@@ -126,16 +128,16 @@ fun RealmCompleteDialog(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     OutlinedButton(
                         onClick = onReplay,
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.weight(1f)
                     ) {
-                        Icon(Icons.Default.Refresh, contentDescription = null, tint = TextSecondary)
+                        Icon(Icons.Default.Refresh, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Reintentar", color = TextSecondary)
+                        Text("Reintentar", color = TextSecondary, fontSize = 11.sp)
                     }
 
                     Button(
@@ -144,10 +146,19 @@ fun RealmCompleteDialog(
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Siguiente", color = CosmosDark, fontWeight = FontWeight.Bold)
+                        Text("Siguiente", color = CosmosDark, fontWeight = FontWeight.Bold, fontSize = 11.sp)
                         Spacer(modifier = Modifier.width(4.dp))
-                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = CosmosDark)
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = CosmosDark, modifier = Modifier.size(16.dp))
                     }
+                }
+
+                TextButton(
+                    onClick = onReturnToMenu,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Map, contentDescription = null, tint = BifrostCyan, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("VOLVER AL MAPA DEL RÍO GJÖLL", color = BifrostCyan, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
             }
         }

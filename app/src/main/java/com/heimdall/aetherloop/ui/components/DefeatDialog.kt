@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dangerous
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -26,7 +27,8 @@ import com.heimdall.aetherloop.ui.theme.*
 @Composable
 fun DefeatDialog(
     wave: FleetWave,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onReturnToMenu: () -> Unit
 ) {
     Dialog(onDismissRequest = {}) {
         Card(
@@ -39,10 +41,10 @@ fun DefeatDialog(
         ) {
             Column(
                 modifier = Modifier
-                    .padding(24.dp)
+                    .padding(22.dp)
                     .fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Box(
                     modifier = Modifier
@@ -63,15 +65,15 @@ fun DefeatDialog(
                 Text(
                     text = "¡FLOTA DESTRUIDA!",
                     color = MuspelCrimson,
-                    fontSize = 20.sp,
+                    fontSize = 19.sp,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 1.sp
                 )
 
                 Text(
-                    text = "Has perdido todas las esferas de energía. La flota invasora ha cruzado el fiordo en ${wave.title}.",
+                    text = "El casco de tu nave ha sucumbido y la flota enemiga ha cruzado el fiordo en ${wave.title}.",
                     color = TextSecondary,
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     textAlign = TextAlign.Center
                 )
 
@@ -81,16 +83,25 @@ fun DefeatDialog(
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp)
+                        .height(48.dp)
                 ) {
                     Icon(Icons.Default.Refresh, contentDescription = null, tint = TextPrimary)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "REINTENTAR OLEADA",
+                        text = "REINTENTAR BATALLA",
                         color = TextPrimary,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
+                        fontSize = 13.sp
                     )
+                }
+
+                TextButton(
+                    onClick = onReturnToMenu,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Map, contentDescription = null, tint = BifrostCyan, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("VOLVER AL MAPA DEL RÍO GJÖLL", color = BifrostCyan, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
             }
         }

@@ -9,12 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.SystemUpdate
-import androidx.compose.material.icons.filled.Vibration
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,19 +22,20 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.heimdall.aetherloop.core.HeimdallEcosystem
 import com.heimdall.aetherloop.game.engine.VikingArkanoidEngine
-import com.heimdall.aetherloop.game.model.FleetWave
 import com.heimdall.aetherloop.ui.theme.*
 
 /**
- * Settings & Fleet Wave Selector Dialog.
+ * Settings & Fleet Wave Selector Dialog with Audio, Return to Menu, and OTA Updater.
  */
 @Composable
 fun SettingsDialog(
     engine: VikingArkanoidEngine,
     onDismiss: () -> Unit,
+    onReturnToMenu: () -> Unit,
     onCheckUpdate: () -> Unit
 ) {
     var soundEnabled by remember { mutableStateOf(!engine.soundSynthesizer.isMuted) }
+    var musicEnabled by remember { mutableStateOf(!engine.soundSynthesizer.isMusicMuted) }
     var hapticsEnabled by remember { mutableStateOf(engine.hapticManager.isHapticsEnabled) }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -84,6 +80,7 @@ fun SettingsDialog(
                         .padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    // Sound SFX
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -92,7 +89,7 @@ fun SettingsDialog(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, tint = BifrostCyan)
                             Spacer(modifier = Modifier.width(10.dp))
-                            Text("Efectos Acústicos Nórdicos", color = TextPrimary, fontSize = 13.sp)
+                            Text("Efectos de Sonido", color = TextPrimary, fontSize = 13.sp)
                         }
                         Switch(
                             checked = soundEnabled,
@@ -110,13 +107,42 @@ fun SettingsDialog(
 
                     HorizontalDivider(color = CosmosBorder)
 
+                    // Background Music (BGM)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Vibration, contentDescription = null, tint = HeimdallGold)
+                            Icon(Icons.Default.MusicNote, contentDescription = null, tint = HeimdallGold)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text("Música de Fondo (BGM)", color = TextPrimary, fontSize = 13.sp)
+                        }
+                        Switch(
+                            checked = musicEnabled,
+                            onCheckedChange = {
+                                musicEnabled = it
+                                engine.soundSynthesizer.isMusicMuted = !it
+                                engine.progressManager.setMusicEnabled(it)
+                                if (it) engine.soundSynthesizer.startBattleMusic() else engine.soundSynthesizer.stopMusic()
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = CosmosDark,
+                                checkedTrackColor = HeimdallGold
+                            )
+                        )
+                    }
+
+                    HorizontalDivider(color = CosmosBorder)
+
+                    // Haptics
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Vibration, contentDescription = null, tint = ValkyrieViolet)
                             Spacer(modifier = Modifier.width(10.dp))
                             Text("Retroalimentación Háptica", color = TextPrimary, fontSize = 13.sp)
                         }
@@ -129,86 +155,29 @@ fun SettingsDialog(
                             },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = CosmosDark,
-                                checkedTrackColor = HeimdallGold
+                                checkedTrackColor = ValkyrieViolet
                             )
                         )
                     }
                 }
 
-                // Wave Selector
-                Text(
-                    text = "MAPA DE OLEADAS Y REINOS",
-                    color = TextMuted,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
-
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val highestUnlocked = engine.progressManager.highestUnlockedRealm
-
-                    for (i in FleetWave.ALL_WAVES.indices) {
-                        val wave = FleetWave.ALL_WAVES[i]
-                        val isUnlocked = i <= highestUnlocked || i == 0
-                        val isCurrent = engine.waveIndex.intValue == i
-                        val stars = engine.progressManager.getRealmStars(i)
-                        val highScore = engine.progressManager.getRealmHighScore(i)
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (isCurrent) BifrostCyan.copy(alpha = 0.2f) else CosmosCard)
-                                .border(
-                                    1.dp,
-                                    if (isCurrent) BifrostCyan else CosmosBorder,
-                                    RoundedCornerShape(12.dp)
-                                )
-                                .clickable(enabled = isUnlocked) {
-                                    engine.loadWave(i)
-                                    onDismiss()
-                                }
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                if (!isUnlocked) {
-                                    Icon(Icons.Default.Lock, contentDescription = null, tint = TextMuted, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                }
-                                Column {
-                                    Text(
-                                        text = "${i + 1}. ${wave.title}",
-                                        color = if (isUnlocked) TextPrimary else TextMuted,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp
-                                    )
-                                    if (highScore > 0) {
-                                        Text(
-                                            text = "Récord: $highScore pts",
-                                            color = TextSecondary,
-                                            fontSize = 10.sp
-                                        )
-                                    }
-                                }
-                            }
-
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                for (s in 1..3) {
-                                    Icon(
-                                        imageVector = Icons.Default.Star,
-                                        contentDescription = null,
-                                        tint = if (s <= stars) HeimdallGold else Color(0x33FFFFFF),
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
+                // Return to Main Menu / River Map Button
+                Button(
+                    onClick = {
+                        onDismiss()
+                        onReturnToMenu()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = CosmosCard),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, BifrostCyan),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Map, contentDescription = null, tint = BifrostCyan)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("VOLVER AL MAPA DEL RÍO GJÖLL", color = BifrostCyan, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
 
-                // Restart current wave
+                // Restart current level
                 OutlinedButton(
                     onClick = {
                         engine.restartCurrentWave()
@@ -219,7 +188,7 @@ fun SettingsDialog(
                 ) {
                     Icon(Icons.Default.Refresh, contentDescription = null, tint = TextSecondary)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Reiniciar Oleada Actual", color = TextSecondary)
+                    Text("Reiniciar Batalla Actual", color = TextSecondary)
                 }
 
                 // In-Device GitHub Update Section

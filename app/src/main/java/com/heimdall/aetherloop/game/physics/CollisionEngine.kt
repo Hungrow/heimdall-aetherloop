@@ -38,7 +38,7 @@ class CollisionEngine(
      * Resolves ball vs paddle collision with angle-directed deflection.
      */
     fun checkBallPaddleCollision(ball: Ball, paddle: Paddle): Boolean {
-        if (ball.vy <= 0) return false // Only collide when moving downwards
+        if (ball.vy <= 0) return false
 
         val closestX = ball.x.coerceIn(paddle.left, paddle.right)
         val closestY = ball.y.coerceIn(paddle.top, paddle.bottom)
@@ -48,19 +48,15 @@ class CollisionEngine(
         val distSq = distX * distX + distY * distY
 
         if (distSq <= ball.radius * ball.radius) {
-            // Impact! Determine rebound angle based on hit position along paddle
             val normalizedHit = ((ball.x - paddle.centerX) / (paddle.width * 0.5f)).coerceIn(-0.95f, 0.95f)
-
-            // Current speed with slight acceleration for excitement
-            val currentSpeed = hypot(ball.vx, ball.vy).coerceIn(600f, 1100f) * 1.02f
-            val maxAngleRad = 62.0 * (PI / 180.0) // 62 degrees max spread
+            val currentSpeed = hypot(ball.vx, ball.vy).coerceIn(600f, 1150f) * 1.02f
+            val maxAngleRad = 62.0 * (PI / 180.0)
             val bounceAngle = normalizedHit * maxAngleRad
 
             ball.vx = (currentSpeed * sin(bounceAngle)).toFloat()
             ball.vy = -(currentSpeed * cos(bounceAngle)).toFloat()
             ball.y = paddle.top - ball.radius - 1f
 
-            // Add water ripple around paddle hit
             waterRipples.add(
                 WaterRipple(x = ball.x, y = paddle.top, color = Color(0xFF00E5FF))
             )
@@ -71,6 +67,67 @@ class CollisionEngine(
             return true
         }
         return false
+    }
+
+    /**
+     * Resolves enemy cannonballs vs player paddle.
+     * Downgrades player ship tier on hit, or costs a life if already at Tier 1.
+     */
+    fun checkCannonPaddleCollisions(
+        cannonBalls: MutableList<CannonBall>,
+        paddle: Paddle,
+        onPaddleHit: (isLifeLost: Boolean) -> Unit
+    ) {
+        val iter = cannonBalls.iterator()
+        while (iter.hasNext()) {
+            val cb = iter.next()
+            if (cb.x in paddle.left..paddle.right && cb.y in paddle.top..paddle.bottom) {
+                // Cannonball hit player ship!
+                screenShakeAmount = 14f
+                soundSynthesizer.playCannonHit()
+                hapticManager.onVesselFilled()
+
+                // Spawn fiery splinters
+                for (i in 0 until 8) {
+                    splinters.add(
+                        SplinterParticle(
+                            x = cb.x,
+                            y = cb.y,
+                            vx = (Random.nextFloat() - 0.5f) * 260f,
+                            vy = -Random.nextFloat() * 200f,
+                            color = Color(0xFFFF5722)
+                        )
+                    )
+                }
+
+                // Downgrade paddle tier or lose life
+                val downgraded = paddle.downgradeTier()
+                if (downgraded) {
+                    soundSynthesizer.playShipDowngrade()
+                    floatingTexts.add(
+                        FloatingText(
+                            x = paddle.centerX,
+                            y = paddle.top - 20f,
+                            text = "¡CASCO DAÑADO! TIER ${paddle.tier}",
+                            color = Color(0xFFFF5722)
+                        )
+                    )
+                    onPaddleHit(false)
+                } else {
+                    floatingTexts.add(
+                        FloatingText(
+                            x = paddle.centerX,
+                            y = paddle.top - 20f,
+                            text = "¡IMPACTO DIRECTO! -1 VIDA",
+                            color = Color(0xFFFF1744)
+                        )
+                    )
+                    onPaddleHit(true)
+                }
+
+                iter.remove()
+            }
+        }
     }
 
     /**
@@ -95,7 +152,6 @@ class CollisionEngine(
             val distSq = distX * distX + distY * distY
 
             if (distSq <= ball.radius * ball.radius) {
-                // Collision with longship!
                 val isPiercing = ball.type.isPiercing
 
                 if (!isPiercing) {
@@ -109,11 +165,9 @@ class CollisionEngine(
                     }
                 }
 
-                // Apply damage
                 val damage = if (isPiercing) 2 else 1
                 val sank = ship.hit(damage)
 
-                // Spawn wood splinters
                 val particleColor = ship.type.primaryColor
                 for (i in 0 until (if (sank) 14 else 5)) {
                     splinters.add(
@@ -128,7 +182,7 @@ class CollisionEngine(
                 }
 
                 if (sank) {
-                    screenShakeAmount = if (ship.type == ShipType.NAGLFAR_BOSS) 20f else 8f
+                    screenShakeAmount = if (ship.type.isBoss) 24f else 8f
                     soundSynthesizer.playShipExplosion()
                     hapticManager.onVesselFilled()
                     floatingTexts.add(
@@ -147,7 +201,6 @@ class CollisionEngine(
                     soundSynthesizer.playShipHit()
                     hapticManager.onParticleCaptured()
 
-                    // 35% chance to trigger Viking Einherjar warrior boarding strike!
                     if (Random.nextFloat() < 0.35f) {
                         onBoardingSpawn?.invoke(ship)
                     }
@@ -254,12 +307,10 @@ class CollisionEngine(
     }
 
     fun updateSplintersAndTexts(dt: Float) {
-        // Decay screen shake
         if (screenShakeAmount > 0f) {
             screenShakeAmount = (screenShakeAmount - dt * 25f).coerceAtLeast(0f)
         }
 
-        // Splinter physics
         val sIter = splinters.iterator()
         while (sIter.hasNext()) {
             val s = sIter.next()
@@ -271,7 +322,6 @@ class CollisionEngine(
             if (s.life <= 0f) sIter.remove()
         }
 
-        // Floating texts
         val tIter = floatingTexts.iterator()
         while (tIter.hasNext()) {
             val t = tIter.next()
@@ -281,7 +331,6 @@ class CollisionEngine(
             if (t.life <= 0f) tIter.remove()
         }
 
-        // Water ripples
         val rIter = waterRipples.iterator()
         while (rIter.hasNext()) {
             val r = rIter.next()

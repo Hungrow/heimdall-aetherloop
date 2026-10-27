@@ -1,9 +1,9 @@
 # AetherLoop ⚔️🌌
 
 > **Videojuego Oficial del Ecosistema Heimdall**  
-> *Defensa Naval en los Fiordos de Asgard • Combate Arkanoid Vikingo a 60 FPS*
+> *Defensa Naval en el Río Sagrado Gjöll • Combate Arkanoid Vikingo a 60 FPS*
 
-[![Versión](https://img.shields.io/badge/version-v2.1.0-00E5FF.svg)](https://github.com/Hungrow/heimdall-aetherloop/releases)
+[![Versión](https://img.shields.io/badge/version-v2.2.0-00E5FF.svg)](https://github.com/Hungrow/heimdall-aetherloop/releases)
 [![Ecosistema](https://img.shields.io/badge/Ecosystem-Heimdall-FFD700.svg)](#ecosistema-heimdall)
 [![Plataforma](https://img.shields.io/badge/Platform-Android%208.0%2B-00E676.svg)](#requisitos-e-instalación)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7F52FF.svg)](https://kotlinlang.org/)
@@ -13,47 +13,49 @@
 
 ## 📖 Visión General
 
-**AetherLoop v2.1.0** eleva drásticamente el listón gráfico y la inmersión del juego con **sprites vectoriales y pixel art de alta resolución**, **guerreros vikingos animados en cubierta y al abordaje**, y **mapas procedurals de múltiples biomas nórdicos** con oleaje dinámico, clima de partículas y sacudidas de pantalla (*screen shake*).
-
-El jugador comanda el **Buque Insignia de Asgard**, tripulado por el **Jarl Comandante** y artilleros de balistas, desviando orbes rúnicos para quebrar las formaciones de drakkars invasores y enviando a sus guerreros Einherjar a saltar sobre los barcos enemigos en encarnizados combates de abordaje.
+**AetherLoop v2.2.0** introduce una expansión masiva de contenidos: **Pantalla de Bienvenida y Menú Principal**, **Mapa de Progresión estilo Río Gjöll con 100 Niveles**, **Jefes Colosales cada 25 niveles**, **Modo Oleadas Infinitas**, **Evolución Visual del Barco del Jugador (Tiers 1 a 4)**, **Movimiento y Cañoneo de Flotas Enemigas**, **Hilos Musicales Procedurales (BGM de Menú y Combate)**, y **Personalización de Perfil con 6 Retratos Artísticos**.
 
 ---
 
-## 🎨 Gran Salto Gráfico: Sprites, Biomas y Guerreros
+## ⚡ Novedades Principales (v2.2.0)
 
-### 🚢 1. Sprites Personalizados de Alta Definición
-Cada nave y elemento ha sido diseñado con sprites dedicados de alta fidelidad:
-* **Karve de Exploración**: Madera de roble claro, mascarón de dragón dorado, vela a franjas rojas y blancas, y escudos de bronce.
-* **Drakkar Acorazado**: Casco de roble fósil reforzado con bandas de hierro, mascarón de cuernos de oro, vela azul real con el Cuervo de Odín y 6 escudos solapados.
-* **Bergantín de Escarcha (Niflheim)**: Maderas heladas con estalactitas de escarcha, cuernos de hielo, runa Algiz resplandeciente en cian y escudos escarchados.
-* **Acorazado de Fuego (Muspelheim)**: Maderas quemadas con vetas de lava incandescente, espolón de bronce, vela de lenguas de fuego ardiente y escudos ígneos.
-* **Naglfar (Jefe Legendario)**: El colosal buque fúnebre forjado con huesos y uñas de los muertos, costillares esqueléticos, tres mástiles con velas rasgadas y faroles de almas en verde espectral.
-* **Buque Insignia de Asgard (Paddle)**: Pala de guerra regia con tallas de dragón en oro, runa central de valquiria, fila de escudos dorados y remos rúnicos.
-* **Runas de Poder Grabadas**: Tablillas de piedra rúnica hexagonal con glifos grabados de Mjölnir, Fuego de Surtr, Trinidad de Bifröst, Balistas, Muro de Escudos y Curación.
+### 🌊 1. El Río Sagrado Gjöll: Mapa de 100 Niveles
+* **Ruta Serpenteante y Nodos Sagrados**: Mapa vertical fluido con 100 niveles organizados a lo largo del cauce celestial.
+* **Pin de Avatar del Jugador**: El retrato artístico de tu guerrero aparece enmarcado en oro directamente sobre el nodo de tu nivel actual, con estrellas obtenidas (1 a 3 ★).
+* **Grandes Jefes Mitológicos cada 25 Niveles**:
+  * **Nivel 25**: 🐉 *Dromon Jörmungandr* (La Serpiente de Midgard, 30 PV y cañones dobles).
+  * **Nivel 50**: 🔥 *Leviatán de Surtr* (Fortaleza volcánica de Muspelheim, 50 PV y proyectiles de magma).
+  * **Nivel 75**: ❄️ *Dragón Níðhöggr* (Acorazado de las raíces de Yggdrasil, 75 PV y blindaje de escarcha).
+  * **Nivel 100**: 💀 *Naglfar Ragnarök* (El colosal barco de los muertos, 100 PV, batalla final por el cosmos).
 
----
+### 🛡️ 2. Evolución y Daño del Barco Insignia (Tiers 1 a 4)
+* **Tier 1 (Karve Dañado)**: Barcaza de madera agrietada tras recibir impactos directos (anchura reducida).
+* **Tier 2 (Drakkar Guardián)**: Buque reforzado con mascarón de bronce y escudos estándar.
+* **Tier 3 (Buque Insignia de Heimdall)**: Mascarón de dragón dorado, runas del Bifröst y torretas de balistas activas.
+* **Tier 4 (Acorazado del Valhalla)**: Alas doradas de valquiria, máxima envergadura, doble artillería y aura celestial.
+* *¡Las mejoras de runas suben de nivel a tu nave, mientras que los cañonazos enemigos degradan su aspecto y atributos!*
 
-### 🪓 2. Guerreros Vikingos en Acción
-* **El Jarl Comandante**: Estacionado en el centro del buque insignia del jugador con su manto de piel, armadura de cota de oro y hacha de guerra en alto, celebrando y arengando en cada impacto.
-* **Abordaje Einherjar**: Al impactar naves enemigas o encadenar golpes, guerreros vikingos saltan hacia las cubiertas enemigas, asestando tajos con sus hachas (`¡CORTE VIKINGO! 🪓`, daño crítico y esquirlas de madera), para luego zambullirse heroicamente en el fiordo.
-* **Tripulación Enemiga**: Asaltantes vikingos visibles en las cubiertas de las naves invasoras con lanzas y cascos de hierro que caen al mar cuando sus buques son hundidos.
+### 💣 3. Flotas Enemigas Dinámicas y Balas de Cañón
+* **Patrulla y Descenso**: Los drakkars enemigos oscilan horizontalmente y avanzan lentamente hacia tu posición. Si alcanzan tu línea defensiva, causan daño crítico.
+* **Artillería de Cañones**: Los navíos enemigos disparan bolas de cañón incandescentes hacia abajo. Desvíalas o esquívalas con tu escudo para evitar perder tiers o vidas.
 
----
+### 🎵 4. Hilo Musical Procedural Dual (Menú y Combate)
+* **BGM del Menú ("El Arpa del Bifröst")**: Melodía ambiental nórdica con arpegios modales de laúd/arpa en Re menor y bordón de violonchelo.
+* **BGM de Batalla ("Tambores de Guerra de Asgard")**: Ritmo bélico percusivo a 60 FPS con redobles graves, ostinatos enérgicos y llamadas de cuerno de guerra.
+* Controles dedicados en el menú para alternar música, efectos de sonido y háptica.
 
-### 🌊 3. Mapas Procedurales y Biomas Nórdicos
-Cada batalla naval se ambienta en un bioma específico con paletas acuáticas personalizadas, oleaje dinámico sinusoidal y partículas meteorológicas ambientales:
-1. **Fiordo de Vigrid (Costas Sagradas)**: Aguas zafiro profundo, reflejos celestiales, bruma marina y arcos de auroras boreales.
-2. **Glaciar de Niflheim (Mar de Hielo)**: Aguas glaciares con témpanos de hielo flotantes a la deriva, nieblas gélidas y ventiscas de copos de nieve.
-3. **Abismo de Muspelheim (Mar de Fuego)**: Océano volcánico oscuro con fisuras de magma, rocas basálticas flotantes, resplandor rojizo y chispas de ceniza ascendentes.
-4. **Aguas del Helheim (Fiordo Sombrío)**: Aguas violetas espectrales con restos de naufragios sumergidos, luz de luna fría y fuegos fatuos flotantes.
-5. **Vórtice del Bifröst (Circuito Cósmico)**: Fondos cósmicos con polvo estelar, nebulosas centelleantes y corrientes de arcoíris estelar.
+### 👤 5. Retratos Artísticos y Perfil de Guerrero
+Elige tu retrato e introduce tu nombre de Jarl:
+1. **Ragnar**: Jarl vikingo con barba trenzada, manto de piel y yelmo alado.
+2. **Lagertha**: Doncella escudera con pintura de guerra azul y diadema de plata.
+3. **Heimdall**: Guardián celestial de ojos dorados omniscientes y corona de Asgard.
+4. **Björn**: Berserker con capucha de piel de oso y tatuajes tribales.
+5. **Freya**: Vidente rúnica con velo violeta, plumas de cuervo y runas en la frente.
+6. **Brunhild**: Valquiria serena de ojos esmeralda y alas de cisne.
 
----
-
-### ⚡ 4. Efectos Visuales e Impacto (*Juice*)
-* **Hundimiento Realista**: Al ser destruidas, las naves no desaparecen de golpe: se escoran $18^\circ$, se fisuran, se llenan de burbujas y se hunden paulatinamente en el agua.
-* **Estelas y Ondas de Agua (*Water Ripples*)**: Cada impacto sobre el agua o rebote genera ondas concéntricas de espuma luminosa que se expanden y disipan.
-* **Sacudida de Pantalla (*Screen Shake*)**: Las detonaciones de naves y el impacto del jefe Naglfar sacuden la cámara dinámicamente con decaimiento suave.
+### ⚔️ 6. Dos Modos de Juego
+* **Campaña de la Historia**: 100 niveles por el río sagrado, historia de la traición de Loki y Surtr, y 4 grandes jefes.
+* **Supervivencia del Valhalla (Oleadas Infinitas)**: Supervivencia extrema contra armadas que escalan en velocidad y frecuencia de disparo sin fin.
 
 ---
 

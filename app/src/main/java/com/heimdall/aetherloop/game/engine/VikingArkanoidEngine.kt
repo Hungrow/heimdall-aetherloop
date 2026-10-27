@@ -15,14 +15,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.concurrent.atomic.AtomicLong
-import kotlin.math.sin
 import kotlin.random.Random
 
 /**
  * Master Game Loop Engine for Viking Arkanoid Naval Combat.
- *
- * Coordinates procedural maps, Viking Einherjar boarding parties,
- * custom longships, weather particles, and screen shake juice.
  */
 class VikingArkanoidEngine(
     val soundSynthesizer: SoundSynthesizer,
@@ -34,11 +30,14 @@ class VikingArkanoidEngine(
     private val shipIdGen = AtomicLong(1L)
     private val warriorIdGen = AtomicLong(1L)
 
+    val gameMode = mutableStateOf(GameMode.STORY_CAMPAIGN)
+
     val paddle = Paddle()
     val activeBalls = mutableStateListOf<Ball>()
     val enemyShips = mutableStateListOf<EnemyShip>()
     val powerUps = mutableStateListOf<PowerUpDrop>()
     val projectiles = mutableStateListOf<Projectile>()
+    val cannonBalls = mutableStateListOf<CannonBall>()
     val vikingWarriors = mutableStateListOf<VikingWarrior>()
 
     val ambientParticles = mutableListOf<AmbientParticle>()
@@ -50,8 +49,8 @@ class VikingArkanoidEngine(
     val score = mutableIntStateOf(0)
     val isBallAttached = mutableStateOf(true)
 
-    val currentWave = mutableStateOf(FleetWave.ALL_WAVES.first())
-    val waveIndex = mutableIntStateOf(0)
+    val currentWave = mutableStateOf(FleetWave.forLevel(1))
+    val levelNumber = mutableIntStateOf(1)
 
     val earnedStars = mutableIntStateOf(0)
     val isNewHighScore = mutableStateOf(false)
@@ -65,24 +64,41 @@ class VikingArkanoidEngine(
     private var screenHeight = 1920f
 
     init {
-        loadWave(0)
+        loadCampaignLevel(progressManager.currentCampaignLevel)
     }
 
     fun startWaveAction() {
         _gameState.value = GameState.PLAYING
+        soundSynthesizer.startBattleMusic()
         launchBall()
     }
 
-    fun loadWave(index: Int) {
-        val safeIndex = index.coerceIn(0, FleetWave.ALL_WAVES.lastIndex)
-        waveIndex.intValue = safeIndex
-        currentWave.value = FleetWave.ALL_WAVES[safeIndex]
-        battleMap.value = MapBiome.forWave(safeIndex)
+    fun loadCampaignLevel(lvl: Int) {
+        gameMode.value = GameMode.STORY_CAMPAIGN
+        val safeLvl = lvl.coerceIn(1, 100)
+        levelNumber.intValue = safeLvl
+        progressManager.currentCampaignLevel = safeLvl
+        currentWave.value = FleetWave.forLevel(safeLvl)
+        battleMap.value = MapBiome.forWave(safeLvl / 20)
 
+        resetFieldAndBuildFormation(safeLvl)
+    }
+
+    fun loadEndlessWave(wave: Int) {
+        gameMode.value = GameMode.ENDLESS_SURVIVAL
+        levelNumber.intValue = wave
+        currentWave.value = FleetWave.forEndless(wave)
+        battleMap.value = MapBiome.forWave(wave % 5)
+
+        resetFieldAndBuildFormation(wave)
+    }
+
+    private fun resetFieldAndBuildFormation(level: Int) {
         activeBalls.clear()
         enemyShips.clear()
         powerUps.clear()
         projectiles.clear()
+        cannonBalls.clear()
         vikingWarriors.clear()
         ambientParticles.clear()
         floatingScenery.clear()
@@ -97,26 +113,34 @@ class VikingArkanoidEngine(
         isNewHighScore.value = false
         jarlCheerAnim.floatValue = 0f
 
-        paddle.width = paddle.baseWidth
-        paddle.hasBallistas = false
+        paddle.tier = 2 // Start at standard Guardian Drakkar
+        paddle.applyTierDimensions()
 
         initAmbientParticles(screenWidth, screenHeight)
         initFloatingScenery(screenWidth, screenHeight)
-        buildFleetFormation(safeIndex, screenWidth, screenHeight)
+        buildFleetFormation(level, screenWidth, screenHeight)
         spawnAttachedBall()
 
         _gameState.value = GameState.MISSION_BRIEFING
     }
 
     fun restartCurrentWave() {
-        loadWave(waveIndex.intValue)
+        if (gameMode.value == GameMode.STORY_CAMPAIGN) {
+            loadCampaignLevel(levelNumber.intValue)
+        } else {
+            loadEndlessWave(levelNumber.intValue)
+        }
     }
 
     fun nextWave() {
-        if (waveIndex.intValue < FleetWave.ALL_WAVES.lastIndex) {
-            loadWave(waveIndex.intValue + 1)
+        if (gameMode.value == GameMode.STORY_CAMPAIGN) {
+            if (levelNumber.intValue < 100) {
+                loadCampaignLevel(levelNumber.intValue + 1)
+            } else {
+                loadCampaignLevel(1)
+            }
         } else {
-            loadWave(0)
+            loadEndlessWave(levelNumber.intValue + 1)
         }
     }
 
@@ -157,7 +181,6 @@ class VikingArkanoidEngine(
             else -> SceneryType.RUNIC_BUOY
         }
 
-        // Spawn 2-3 drifting scenery pieces in background
         for (i in 0 until 3) {
             floatingScenery.add(
                 FloatingScenery(
@@ -246,7 +269,7 @@ class VikingArkanoidEngine(
         }
     }
 
-    private fun buildFleetFormation(waveIdx: Int, w: Float, h: Float) {
+    private fun buildFleetFormation(level: Int, w: Float, h: Float) {
         val safeW = if (w > 100f) w else 1080f
         val safeH = if (h > 100f) h else 1920f
 
@@ -254,161 +277,110 @@ class VikingArkanoidEngine(
         val shipW = (safeW * 0.20f).coerceIn(68f, 96f)
         val shipH = (safeH * 0.052f).coerceIn(40f, 60f)
 
-        when (waveIdx) {
-            0 -> {
-                // Wave 1: 3 rows of Nimble Scouts (Karves)
-                val rows = 3
-                val cols = 4
-                val spacingX = safeW * 0.82f / cols
-                val startX = safeW * 0.09f + spacingX * 0.5f
+        val wave = currentWave.value
+        val isBossWave = wave.isBossLevel && wave.bossType != null
 
-                for (r in 0 until rows) {
-                    for (c in 0 until cols) {
-                        val shipX = startX + c * spacingX
-                        val shipY = startY + r * (shipH + 18f)
-                        val drop = if (r == 0 && c == 1) PowerUpType.MULTIBALL else if (r == 1 && c == 2) PowerUpType.MJOLNIR else null
+        if (isBossWave) {
+            // Milestone Boss Fleet (Level 25, 50, 75, 100)
+            val bossType = wave.bossType ?: ShipType.BOSS_NAGLFAR
+            val bossW = safeW * 0.72f
+            val bossH = shipH * 2.3f
 
-                        enemyShips.add(
-                            EnemyShip(
-                                id = shipIdGen.incrementAndGet(),
-                                x = shipX,
-                                y = shipY,
-                                width = shipW,
-                                height = shipH,
-                                type = ShipType.SCOUT,
-                                powerUpType = drop
-                            )
-                        )
-                    }
+            enemyShips.add(
+                EnemyShip(
+                    id = shipIdGen.incrementAndGet(),
+                    x = safeW * 0.5f,
+                    y = startY + bossH * 0.5f,
+                    width = bossW,
+                    height = bossH,
+                    type = bossType,
+                    powerUpType = PowerUpType.MJOLNIR,
+                    vx = 45f,
+                    descentSpeed = 1.0f,
+                    canShoot = true,
+                    cannonCooldown = 1.8f
+                )
+            )
+
+            // Flanking escorts
+            val escortsY = startY + bossH + 28f
+            val cols = 4
+            val spacingX = safeW * 0.82f / cols
+            val startX = safeW * 0.09f + spacingX * 0.5f
+            for (c in 0 until cols) {
+                val drop = if (c == 0) PowerUpType.BALLISTAS else if (c == 3) PowerUpType.MULTIBALL else null
+                val escortType = when (bossType) {
+                    ShipType.BOSS_JORMUNGANDR -> ShipType.SCOUT
+                    ShipType.BOSS_SURTR -> ShipType.FIRE_DREADNOUGHT
+                    ShipType.BOSS_NIDHOGGR -> ShipType.FROST_BRIG
+                    else -> ShipType.ARMORED_DRAKKAR
                 }
-            }
-            1 -> {
-                // Wave 2: Shield-Wall Drakkars + Scouts
-                val rows = 4
-                val cols = 4
-                val spacingX = safeW * 0.82f / cols
-                val startX = safeW * 0.09f + spacingX * 0.5f
-
-                for (r in 0 until rows) {
-                    for (c in 0 until cols) {
-                        val shipX = startX + c * spacingX
-                        val shipY = startY + r * (shipH + 16f)
-                        val isArmored = r % 2 == 0
-                        val drop = when {
-                            r == 1 && c == 0 -> PowerUpType.BALLISTAS
-                            r == 2 && c == 2 -> PowerUpType.SHIELD_EXPAND
-                            else -> null
-                        }
-
-                        enemyShips.add(
-                            EnemyShip(
-                                id = shipIdGen.incrementAndGet(),
-                                x = shipX,
-                                y = shipY,
-                                width = shipW,
-                                height = shipH,
-                                type = if (isArmored) ShipType.ARMORED_DRAKKAR else ShipType.SCOUT,
-                                powerUpType = drop
-                            )
-                        )
-                    }
-                }
-            }
-            2 -> {
-                // Wave 3: Jötunheim Ice Fleet (Frost Brigs & Armored)
-                val rows = 4
-                val cols = 5
-                val spacingX = safeW * 0.84f / cols
-                val startX = safeW * 0.08f + spacingX * 0.5f
-
-                for (r in 0 until rows) {
-                    for (c in 0 until cols) {
-                        val shipX = startX + c * spacingX
-                        val shipY = startY + r * (shipH + 16f)
-                        val type = when {
-                            r == 0 -> ShipType.FROST_BRIG
-                            r % 2 == 1 -> ShipType.ARMORED_DRAKKAR
-                            else -> ShipType.SCOUT
-                        }
-                        val drop = if (r == 0 && c == 2) PowerUpType.SURTR_FIRE else if (r == 2 && c == 1) PowerUpType.MULTIBALL else null
-
-                        enemyShips.add(
-                            EnemyShip(
-                                id = shipIdGen.incrementAndGet(),
-                                x = shipX,
-                                y = shipY,
-                                width = shipW,
-                                height = shipH,
-                                type = type,
-                                powerUpType = drop
-                            )
-                        )
-                    }
-                }
-            }
-            3 -> {
-                // Wave 4: Surtr's Fire Armada
-                val rows = 5
-                val cols = 4
-                val spacingX = safeW * 0.82f / cols
-                val startX = safeW * 0.09f + spacingX * 0.5f
-
-                for (r in 0 until rows) {
-                    for (c in 0 until cols) {
-                        val shipX = startX + c * spacingX
-                        val shipY = startY + r * (shipH + 16f)
-                        val type = when (r) {
-                            0, 1 -> ShipType.FIRE_DREADNOUGHT
-                            2 -> ShipType.FROST_BRIG
-                            else -> ShipType.ARMORED_DRAKKAR
-                        }
-                        val drop = if (r == 0 && c == 3) PowerUpType.BALLISTAS else if (r == 1 && c == 1) PowerUpType.REPAIR_LIFE else null
-
-                        enemyShips.add(
-                            EnemyShip(
-                                id = shipIdGen.incrementAndGet(),
-                                x = shipX,
-                                y = shipY,
-                                width = shipW,
-                                height = shipH,
-                                type = type,
-                                powerUpType = drop
-                            )
-                        )
-                    }
-                }
-            }
-            else -> {
-                // Wave 5: BOSS NAGLFAR + Elite Vanguard!
-                val bossW = safeW * 0.70f
-                val bossH = shipH * 2.2f
                 enemyShips.add(
                     EnemyShip(
                         id = shipIdGen.incrementAndGet(),
-                        x = safeW * 0.5f,
-                        y = startY + bossH * 0.5f,
-                        width = bossW,
-                        height = bossH,
-                        type = ShipType.NAGLFAR_BOSS,
-                        powerUpType = PowerUpType.MJOLNIR
+                        x = startX + c * spacingX,
+                        y = escortsY,
+                        width = shipW,
+                        height = shipH,
+                        type = escortType,
+                        powerUpType = drop,
+                        vx = (if (c % 2 == 0) 30f else -30f),
+                        descentSpeed = 2.0f,
+                        canShoot = true,
+                        cannonCooldown = Random.nextFloat() * 4f + 3f
                     )
                 )
+            }
+        } else {
+            // Standard / Scaled Fleet Formations (Levels 1 to 99)
+            val rows = (3 + (level % 5).coerceAtMost(2)).coerceIn(3, 5)
+            val cols = (4 + (if (level > 20) 1 else 0)).coerceIn(4, 5)
+            val spacingX = safeW * 0.82f / cols
+            val startX = safeW * 0.09f + spacingX * 0.5f
 
-                val escortsY = startY + bossH + 25f
-                val cols = 4
-                val spacingX = safeW * 0.82f / cols
-                val startX = safeW * 0.09f + spacingX * 0.5f
+            val speedMultiplier = 1.0f + (level * 0.015f)
+            val canShootRatio = (level * 0.02f).coerceIn(0.15f, 0.65f)
+
+            for (r in 0 until rows) {
                 for (c in 0 until cols) {
-                    val drop = if (c == 0) PowerUpType.BALLISTAS else if (c == 3) PowerUpType.MULTIBALL else null
+                    val shipX = startX + c * spacingX
+                    val shipY = startY + r * (shipH + 16f)
+
+                    val shipType = when {
+                        level in 1..24 -> if (r == 0) ShipType.ARMORED_DRAKKAR else ShipType.SCOUT
+                        level in 26..49 -> if (r <= 1) ShipType.FIRE_DREADNOUGHT else ShipType.ARMORED_DRAKKAR
+                        level in 51..74 -> if (r == 0) ShipType.FROST_BRIG else if (r % 2 == 1) ShipType.ARMORED_DRAKKAR else ShipType.SCOUT
+                        else -> when (r) {
+                            0 -> ShipType.FIRE_DREADNOUGHT
+                            1 -> ShipType.FROST_BRIG
+                            else -> ShipType.ARMORED_DRAKKAR
+                        }
+                    }
+
+                    val drop = when {
+                        r == 0 && c == 1 -> PowerUpType.MULTIBALL
+                        r == 1 && c == 2 -> PowerUpType.MJOLNIR
+                        r == 2 && c == 0 -> PowerUpType.BALLISTAS
+                        r == 2 && c == 3 -> PowerUpType.SHIELD_EXPAND
+                        else -> null
+                    }
+
+                    val shouldShoot = Random.nextFloat() < canShootRatio
+                    val patrolVx = (if (r % 2 == 0) 25f else -25f) * speedMultiplier
+
                     enemyShips.add(
                         EnemyShip(
                             id = shipIdGen.incrementAndGet(),
-                            x = startX + c * spacingX,
-                            y = escortsY,
+                            x = shipX,
+                            y = shipY,
                             width = shipW,
                             height = shipH,
-                            type = ShipType.FIRE_DREADNOUGHT,
-                            powerUpType = drop
+                            type = shipType,
+                            powerUpType = drop,
+                            vx = patrolVx,
+                            descentSpeed = 1.8f * speedMultiplier,
+                            canShoot = shouldShoot,
+                            cannonCooldown = Random.nextFloat() * 5f + 3f
                         )
                     )
                 }
@@ -420,7 +392,7 @@ class VikingArkanoidEngine(
         score.intValue += ship.type.scoreValue
         jarlCheerAnim.floatValue = 1.0f
 
-        val dropType = ship.powerUpType ?: if (Random.nextFloat() < 0.25f) {
+        val dropType = ship.powerUpType ?: if (Random.nextFloat() < 0.28f) {
             PowerUpType.entries.random()
         } else null
 
@@ -434,7 +406,6 @@ class VikingArkanoidEngine(
             )
         }
 
-        // Check if all non-destroyed ships cleared
         val activeCount = enemyShips.count { !it.isDestroyed }
         if (activeCount == 0) {
             onWaveVictory()
@@ -443,6 +414,15 @@ class VikingArkanoidEngine(
 
     private fun handlePowerUpCollected(type: PowerUpType) {
         jarlCheerAnim.floatValue = 1.0f
+
+        // Ship evolution upgrade on shield/ballista/repair power-ups!
+        if (type == PowerUpType.SHIELD_EXPAND || type == PowerUpType.BALLISTAS || type == PowerUpType.REPAIR_LIFE) {
+            val upgraded = paddle.upgradeTier()
+            if (upgraded) {
+                soundSynthesizer.playShipUpgrade()
+            }
+        }
+
         when (type) {
             PowerUpType.MJOLNIR -> {
                 for (b in activeBalls) {
@@ -505,12 +485,15 @@ class VikingArkanoidEngine(
         }
         earnedStars.intValue = stars
 
-        val isHigh = progressManager.setRealmHighScore(waveIndex.intValue, finalScore)
-        isNewHighScore.value = isHigh
-        progressManager.setRealmStars(waveIndex.intValue, stars)
-
-        if (waveIndex.intValue + 1 > progressManager.highestUnlockedRealm) {
-            progressManager.highestUnlockedRealm = waveIndex.intValue + 1
+        val lvl = levelNumber.intValue
+        if (gameMode.value == GameMode.STORY_CAMPAIGN) {
+            val isHigh = progressManager.setLevelHighScore(lvl, finalScore)
+            isNewHighScore.value = isHigh
+            progressManager.setLevelStars(lvl, stars)
+            progressManager.highestCampaignLevel = lvl + 1
+        } else {
+            progressManager.endlessHighScore = finalScore
+            progressManager.endlessHighestWave = lvl
         }
     }
 
@@ -525,7 +508,7 @@ class VikingArkanoidEngine(
             jarlCheerAnim.floatValue = (jarlCheerAnim.floatValue - dt * 2f).coerceAtLeast(0f)
         }
 
-        // 1. Update Ambient Weather Particles
+        // 1. Ambient Weather Particles
         val pIter = ambientParticles.iterator()
         while (pIter.hasNext()) {
             val p = pIter.next()
@@ -540,7 +523,7 @@ class VikingArkanoidEngine(
             }
         }
 
-        // 2. Update Floating Scenery (Icebergs, volcanic rocks)
+        // 2. Floating Scenery
         val sIter = floatingScenery.iterator()
         while (sIter.hasNext()) {
             val s = sIter.next()
@@ -551,7 +534,7 @@ class VikingArkanoidEngine(
             }
         }
 
-        // 3. Update Sinking Ships
+        // 3. Sinking Ships
         val shipIter = enemyShips.iterator()
         while (shipIter.hasNext()) {
             val ship = shipIter.next()
@@ -568,18 +551,65 @@ class VikingArkanoidEngine(
 
         val safeDt = dt.coerceIn(0.001f, 0.05f)
 
-        // 4. Update Viking Boarding Warriors
+        // 4. Update Enemy Ship Movement & Cannonball Fire
+        for (ship in enemyShips) {
+            if (ship.isSinking) continue
+            ship.updateMovement(safeDt, width)
+
+            // Cannon firing
+            if (ship.canShoot) {
+                ship.cannonCooldown -= safeDt
+                if (ship.cannonCooldown <= 0f) {
+                    cannonBalls.add(
+                        CannonBall(x = ship.x, y = ship.bottom + 6f, vy = 380f)
+                    )
+                    soundSynthesizer.playCannonFire()
+                    ship.cannonCooldown = if (ship.type.isBoss) 2.2f else Random.nextFloat() * 5f + 4f
+                }
+            }
+
+            // If an enemy ship reaches paddle line: emergency life lost!
+            if (ship.bottom >= paddle.top - 15f && !ship.isDestroyed) {
+                ship.hit(99)
+                lives.intValue--
+                soundSynthesizer.playBallLost()
+                collisionEngine.screenShakeAmount = 18f
+            }
+        }
+
+        // 5. Update Cannonballs and Check Collisions with Paddle
+        val cbIter = cannonBalls.iterator()
+        while (cbIter.hasNext()) {
+            val cb = cbIter.next()
+            cb.y += cb.vy * safeDt
+            if (cb.y > height) {
+                cbIter.remove()
+            }
+        }
+        collisionEngine.checkCannonPaddleCollisions(
+            cannonBalls = cannonBalls,
+            paddle = paddle,
+            onPaddleHit = { isLifeLost ->
+                if (isLifeLost) {
+                    lives.intValue--
+                    if (lives.intValue <= 0) {
+                        _gameState.value = GameState.VOID_OVERLOAD
+                    }
+                }
+            }
+        )
+
+        // 6. Update Viking Boarding Warriors
         val wIter = vikingWarriors.iterator()
         while (wIter.hasNext()) {
             val w = wIter.next()
             when (w.state) {
                 WarriorState.LEAPING -> {
-                    w.vy += 1200f * safeDt // Gravity
+                    w.vy += 1200f * safeDt
                     w.x += w.vx * safeDt
                     w.y += w.vy * safeDt
                     w.rotation += 180f * safeDt
 
-                    // Check if landed on any alive ship
                     val targetShip = enemyShips.firstOrNull { ship ->
                         !ship.isDestroyed && !ship.isSinking &&
                                 w.x in ship.left..ship.right && w.y in ship.top..ship.bottom
@@ -638,7 +668,7 @@ class VikingArkanoidEngine(
             }
         }
 
-        // 5. Move Projectiles
+        // 7. Move Projectiles
         collisionEngine.checkProjectileShipCollisions(
             projectiles = projectiles,
             ships = enemyShips,
@@ -651,7 +681,7 @@ class VikingArkanoidEngine(
             if (p.y < 0) projIter.remove()
         }
 
-        // 6. Move Power-Up Drops
+        // 8. Move Power-Up Drops
         collisionEngine.checkPowerUpCatch(
             powerUps = powerUps,
             paddle = paddle,
@@ -664,7 +694,7 @@ class VikingArkanoidEngine(
             if (d.y > height) dropIter.remove()
         }
 
-        // 7. Move Balls and Check Collisions
+        // 9. Move Balls and Check Collisions
         val ballIter = activeBalls.iterator()
         while (ballIter.hasNext()) {
             val ball = ballIter.next()
@@ -726,7 +756,7 @@ class VikingArkanoidEngine(
             }
         }
 
-        // 8. Update Visual FX
+        // 10. Update Visual FX
         collisionEngine.updateSplintersAndTexts(safeDt)
     }
 }

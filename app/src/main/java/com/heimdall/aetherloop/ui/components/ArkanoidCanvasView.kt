@@ -7,7 +7,6 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -32,13 +31,12 @@ import com.heimdall.aetherloop.R
 import com.heimdall.aetherloop.game.engine.VikingArkanoidEngine
 import com.heimdall.aetherloop.game.model.*
 import com.heimdall.aetherloop.ui.theme.*
-import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
 
 /**
  * High-performance hardware-accelerated Arkanoid Canvas with Custom Sprites,
- * Procedural Maps, Viking Einherjar Boarding Parties, and Dynamic Juice.
+ * Ship Evolution Tiers, Flaming Cannonballs, Procedural Maps, and Viking Einherjars.
  */
 @Composable
 fun ArkanoidCanvasView(
@@ -46,16 +44,23 @@ fun ArkanoidCanvasView(
     frameTick: Long,
     modifier: Modifier = Modifier
 ) {
-    // Cache high-detail custom sprites
+    // Ship Sprites
     val spriteScout = ImageBitmap.imageResource(id = R.drawable.ship_scout)
     val spriteDrakkar = ImageBitmap.imageResource(id = R.drawable.ship_drakkar)
     val spriteFrost = ImageBitmap.imageResource(id = R.drawable.ship_frost)
     val spriteFire = ImageBitmap.imageResource(id = R.drawable.ship_fire)
     val spriteNaglfar = ImageBitmap.imageResource(id = R.drawable.ship_naglfar)
-    val spriteFlagship = ImageBitmap.imageResource(id = R.drawable.paddle_flagship)
+
+    // Paddle Evolution Tier Sprites
+    val spritePaddleTier1 = ImageBitmap.imageResource(id = R.drawable.paddle_tier1)
+    val spritePaddleTier2 = ImageBitmap.imageResource(id = R.drawable.paddle_tier2)
+    val spritePaddleTier3 = ImageBitmap.imageResource(id = R.drawable.paddle_flagship)
+    val spritePaddleTier4 = ImageBitmap.imageResource(id = R.drawable.paddle_tier4)
+
     val spriteJarl = ImageBitmap.imageResource(id = R.drawable.viking_jarl)
     val spriteWarrior = ImageBitmap.imageResource(id = R.drawable.viking_warrior)
     val spriteEnemy = ImageBitmap.imageResource(id = R.drawable.viking_enemy)
+    val spriteCannonball = ImageBitmap.imageResource(id = R.drawable.cannonball_flaming)
 
     val spriteRuneMjolnir = ImageBitmap.imageResource(id = R.drawable.rune_mjolnir)
     val spriteRuneMultiball = ImageBitmap.imageResource(id = R.drawable.rune_multiball)
@@ -85,31 +90,43 @@ fun ArkanoidCanvasView(
         val w = size.width
         val h = size.height
 
-        // Calculate Screen Shake
         val shake = engine.collisionEngine.screenShakeAmount
         val shakeX = if (shake > 0f) (Random.nextFloat() - 0.5f) * shake * 2f else 0f
         val shakeY = if (shake > 0f) (Random.nextFloat() - 0.5f) * shake * 2f else 0f
 
         translate(left = shakeX, top = shakeY) {
-            // 1. Draw Procedural Map & Atmospheric Ocean/Sky
+            // 1. Procedural Map & Celestial Ocean
             drawProceduralBattleMap(w, h, engine.battleMap.value, timeSec, engine.floatingScenery)
 
-            // 2. Draw Water Ripples
+            // 2. Water Ripples
             drawWaterRipples(engine.collisionEngine.waterRipples)
 
-            // 3. Draw Enemy Viking Longships with custom sprites
+            // 3. Enemy Viking Longships
             for (ship in engine.enemyShips) {
                 val sprite = when (ship.type) {
                     ShipType.SCOUT -> spriteScout
                     ShipType.ARMORED_DRAKKAR -> spriteDrakkar
                     ShipType.FROST_BRIG -> spriteFrost
                     ShipType.FIRE_DREADNOUGHT -> spriteFire
-                    ShipType.NAGLFAR_BOSS -> spriteNaglfar
+                    ShipType.BOSS_JORMUNGANDR -> spriteDrakkar
+                    ShipType.BOSS_SURTR -> spriteFire
+                    ShipType.BOSS_NIDHOGGR -> spriteFrost
+                    ShipType.BOSS_NAGLFAR -> spriteNaglfar
                 }
                 drawVikingLongship(ship, sprite, spriteEnemy, timeSec)
             }
 
-            // 4. Draw Laser Projectiles
+            // 4. Enemy Flaming Cannonballs
+            for (cb in engine.cannonBalls) {
+                val cbSize = (cb.radius * 2.8f).toInt()
+                drawImage(
+                    image = spriteCannonball,
+                    dstOffset = IntOffset((cb.x - cbSize / 2f).toInt(), (cb.y - cbSize / 2f).toInt()),
+                    dstSize = IntSize(cbSize, cbSize)
+                )
+            }
+
+            // 5. Laser Projectiles
             for (proj in engine.projectiles) {
                 drawCircle(
                     color = ValkyrieViolet,
@@ -124,7 +141,7 @@ fun ArkanoidCanvasView(
                 )
             }
 
-            // 5. Draw Falling Power-Up Runes
+            // 6. Falling Power-Up Runes
             for (powerUp in engine.powerUps) {
                 val runeSprite = when (powerUp.type) {
                     PowerUpType.MJOLNIR -> spriteRuneMjolnir
@@ -137,23 +154,29 @@ fun ArkanoidCanvasView(
                 drawPowerUpRune(powerUp, runeSprite, timeSec)
             }
 
-            // 6. Draw Asgardian Warship Flagship Paddle with Viking Jarl
-            drawAsgardianPaddle(engine.paddle, spriteFlagship, spriteJarl, engine.jarlCheerAnim.floatValue, timeSec)
+            // 7. Player Ship Flagship Paddle (with Evolution Tiers 1-4)
+            val paddleSprite = when (engine.paddle.tier) {
+                1 -> spritePaddleTier1
+                2 -> spritePaddleTier2
+                3 -> spritePaddleTier3
+                else -> spritePaddleTier4
+            }
+            drawAsgardianPaddle(engine.paddle, paddleSprite, spriteJarl, engine.jarlCheerAnim.floatValue, timeSec)
 
-            // 7. Draw Viking Einherjar Boarding Warriors
+            // 8. Viking Einherjar Boarding Warriors
             for (warrior in engine.vikingWarriors) {
                 drawVikingWarrior(warrior, spriteWarrior, timeSec)
             }
 
-            // 8. Draw Rune Spheres (Balls) with Comet Stardust Trails
+            // 9. Rune Spheres (Balls)
             for (ball in engine.activeBalls) {
                 drawRuneBall(ball, timeSec)
             }
 
-            // 9. Draw Ambient Weather Particles (Snow, Embers, Stardust)
+            // 10. Ambient Weather Particles
             drawAmbientParticles(engine.ambientParticles)
 
-            // 10. Draw Wood Splinters & Explosions
+            // 11. Wood Splinters & Explosions
             for (splinter in engine.collisionEngine.splinters) {
                 drawCircle(
                     color = splinter.color.copy(alpha = splinter.alpha),
@@ -162,7 +185,7 @@ fun ArkanoidCanvasView(
                 )
             }
 
-            // 11. Draw Floating Combat Text
+            // 12. Floating Combat Text
             drawContext.canvas.nativeCanvas.apply {
                 val paint = Paint().apply {
                     textSize = 26f
@@ -186,7 +209,6 @@ private fun DrawScope.drawProceduralBattleMap(
     timeSec: Float,
     sceneryList: List<FloatingScenery>
 ) {
-    // 1. Sky Gradient
     drawRect(
         brush = Brush.verticalGradient(
             colors = biome.skyColors,
@@ -197,7 +219,6 @@ private fun DrawScope.drawProceduralBattleMap(
         size = Size(w, h * 0.45f)
     )
 
-    // 2. Aurora Borealis / Cosmic Ribbon
     val auroraAlpha = (sin(timeSec * 0.8f) * 0.15f + 0.25f).coerceIn(0.1f, 0.4f)
     when (biome) {
         MapBiome.NIFLHEIM_ICE -> {
@@ -254,7 +275,6 @@ private fun DrawScope.drawProceduralBattleMap(
         }
     }
 
-    // 3. Water Deep Gradient
     drawRect(
         brush = Brush.verticalGradient(
             colors = biome.waterColors,
@@ -265,7 +285,6 @@ private fun DrawScope.drawProceduralBattleMap(
         size = Size(w, h * 0.55f)
     )
 
-    // 4. Floating Procedural Scenery (Icebergs, Volcanic rocks)
     for (scenery in sceneryList) {
         val scColor = when (scenery.type) {
             SceneryType.ICEBERG -> Color(0xD0E0F7FA)
@@ -280,7 +299,6 @@ private fun DrawScope.drawProceduralBattleMap(
                 size = Size(scenery.width, scenery.height),
                 cornerRadius = CornerRadius(8f, 8f)
             )
-            // Ripple around scenery
             drawCircle(
                 color = biome.waveFoamColor,
                 radius = scenery.width * 0.6f,
@@ -290,7 +308,6 @@ private fun DrawScope.drawProceduralBattleMap(
         }
     }
 
-    // 5. Sinusoidal Animated Wave Lines
     val numWaves = 7
     for (i in 0 until numWaves) {
         val baseY = h * (0.48f + i * 0.075f)
@@ -334,7 +351,6 @@ private fun DrawScope.drawVikingLongship(
     val w = ship.width
     val h = ship.height
 
-    // Water wake behind active ships
     if (!ship.isSinking) {
         val wakeW = w * 0.8f
         drawLine(
@@ -351,7 +367,6 @@ private fun DrawScope.drawVikingLongship(
         degrees = if (ship.isSinking) ship.tiltAngle * ship.sinkProgress else sin(timeSec * 2f + ship.id) * 2.5f,
         pivot = Offset(ship.x, ship.y)
     ) {
-        // Draw High-Detail Custom Ship Sprite
         drawImage(
             image = shipSprite,
             dstOffset = IntOffset(left.toInt(), top.toInt()),
@@ -360,7 +375,6 @@ private fun DrawScope.drawVikingLongship(
             colorFilter = if (ship.hitFlashAnim > 0f) ColorFilter.tint(Color.White, BlendMode.SrcAtop) else null
         )
 
-        // Draw small enemy Viking raider on deck
         if (!ship.isSinking && ship.type != ShipType.SCOUT) {
             val raiderSize = (h * 0.45f).coerceIn(16f, 28f).toInt()
             drawImage(
@@ -371,12 +385,12 @@ private fun DrawScope.drawVikingLongship(
         }
     }
 
-    // Health Bar (if maxHp > 1 and not sinking)
+    // Health Bar
     if (ship.type.maxHp > 1 && !ship.isSinking) {
         val hpBarW = w * 0.8f
-        val hpBarH = 4.5f
+        val hpBarH = if (ship.type.isBoss) 7f else 4.5f
         val hpLeft = ship.x - hpBarW / 2f
-        val hpTop = top - 8f
+        val hpTop = top - (if (ship.type.isBoss) 12f else 8f)
         val hpRatio = ship.currentHp.toFloat() / ship.type.maxHp.toFloat()
 
         drawRoundRect(
@@ -400,7 +414,6 @@ private fun DrawScope.drawVikingLongship(
         )
     }
 
-    // Decay hit flash
     if (ship.hitFlashAnim > 0f) {
         ship.hitFlashAnim = (ship.hitFlashAnim - 0.12f).coerceAtLeast(0f)
     }
@@ -418,7 +431,7 @@ private fun DrawScope.drawAsgardianPaddle(
     val w = paddle.width
     val h = paddle.height
 
-    // Water Foam Wake at paddle ends
+    // Water Foam Wake
     drawCircle(
         color = Color(0x4400E5FF),
         radius = 12f,
@@ -430,14 +443,15 @@ private fun DrawScope.drawAsgardianPaddle(
         center = Offset(paddle.right - 6f, top + h * 0.5f)
     )
 
-    // Draw Asgardian Battleship Paddle Sprite
+    // Draw Ship Tier Sprite (with optional hit flash)
     drawImage(
         image = paddleSprite,
         dstOffset = IntOffset(left.toInt(), top.toInt()),
-        dstSize = IntSize(w.toInt(), h.toInt())
+        dstSize = IntSize(w.toInt(), h.toInt()),
+        colorFilter = if (paddle.flashAnim > 0f) ColorFilter.tint(Color.White, BlendMode.SrcAtop) else null
     )
 
-    // Draw Viking Jarl Commander standing proudly at center of flagship deck
+    // Jarl Commander on deck
     val jarlSize = (h * 1.35f).toInt()
     val jarlBounce = sin(timeSec * 4f) * 2f - (jarlCheer * 8f)
     drawImage(
@@ -446,7 +460,7 @@ private fun DrawScope.drawAsgardianPaddle(
         dstSize = IntSize(jarlSize, jarlSize)
     )
 
-    // Mounted Ballista Turrets glow
+    // Mounted Ballistas
     if (paddle.hasBallistas) {
         val turretRadius = 8f
         drawCircle(
@@ -487,7 +501,6 @@ private fun DrawScope.drawVikingWarrior(
         )
     }
 
-    // If slashing, draw golden axe slash arc
     if (warrior.state == WarriorState.SLASHING) {
         drawArc(
             color = HeimdallGold,
@@ -507,8 +520,6 @@ private fun DrawScope.drawPowerUpRune(
     timeSec: Float
 ) {
     val size = (p.radius * 2.3f).toInt()
-
-    // Outer pulsating halo
     val haloRadius = p.radius * (1.2f + sin(timeSec * 5f) * 0.15f)
     drawCircle(
         color = p.type.color.copy(alpha = 0.35f),
@@ -516,7 +527,6 @@ private fun DrawScope.drawPowerUpRune(
         center = Offset(p.x, p.y)
     )
 
-    // Draw Stone Tablet Sprite
     drawImage(
         image = runeSprite,
         dstOffset = IntOffset((p.x - size / 2f).toInt(), (p.y - size / 2f).toInt()),
@@ -525,7 +535,6 @@ private fun DrawScope.drawPowerUpRune(
 }
 
 private fun DrawScope.drawRuneBall(ball: Ball, timeSec: Float) {
-    // 1. Comet Stardust Trail
     val trail = ball.trailPoints
     for (i in trail.indices) {
         val pt = trail[i]
@@ -537,14 +546,12 @@ private fun DrawScope.drawRuneBall(ball: Ball, timeSec: Float) {
         )
     }
 
-    // 2. Outer Glow Halo
     drawCircle(
         color = ball.type.glowColor,
         radius = ball.radius * 2.4f,
         center = Offset(ball.x, ball.y)
     )
 
-    // 3. Core Sphere
     drawCircle(
         brush = Brush.radialGradient(
             colors = listOf(Color.White, ball.type.color),
