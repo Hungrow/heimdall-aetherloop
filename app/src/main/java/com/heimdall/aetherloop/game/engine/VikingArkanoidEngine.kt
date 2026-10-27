@@ -39,6 +39,7 @@ class VikingArkanoidEngine(
     val projectiles = mutableStateListOf<Projectile>()
     val cannonBalls = mutableStateListOf<CannonBall>()
     val vikingWarriors = mutableStateListOf<VikingWarrior>()
+    val oceanSwells = mutableStateListOf<OceanSwell>()
 
     val ambientParticles = mutableListOf<AmbientParticle>()
     val floatingScenery = mutableListOf<FloatingScenery>()
@@ -48,6 +49,9 @@ class VikingArkanoidEngine(
     val lives = mutableIntStateOf(3)
     val score = mutableIntStateOf(0)
     val isBallAttached = mutableStateOf(true)
+    val isPaused = mutableStateOf(false)
+
+    var frostNovaTimer = 0f
 
     val currentWave = mutableStateOf(FleetWave.forLevel(1))
     val levelNumber = mutableIntStateOf(1)
@@ -115,6 +119,14 @@ class VikingArkanoidEngine(
 
         paddle.tier = 2 // Start at standard Guardian Drakkar
         paddle.applyTierDimensions()
+        paddle.isLokiCursed = false
+        paddle.isKeelFrozen = false
+        paddle.isMagnetActive = false
+        frostNovaTimer = 0f
+
+        oceanSwells.clear()
+        oceanSwells.add(OceanSwell(id = 1L, y = screenHeight * 0.44f, height = 36f, vy = 30f, surgeTimer = 0f))
+        oceanSwells.add(OceanSwell(id = 2L, y = screenHeight * 0.65f, height = 38f, vy = 34f, surgeTimer = 2.6f))
 
         initAmbientParticles(screenWidth, screenHeight)
         initFloatingScenery(screenWidth, screenHeight)
@@ -224,9 +236,12 @@ class VikingArkanoidEngine(
         }
     }
 
-    fun dragPaddle(newCenterX: Float) {
+    fun dragPaddle(dragDeltaX: Float) {
+        val effectiveDelta = if (paddle.isLokiCursed) -dragDeltaX else dragDeltaX
+        val speedFactor = if (paddle.isKeelFrozen) 0.5f else 1.0f
+        val newX = paddle.centerX + effectiveDelta * speedFactor
         val halfW = paddle.width / 2f
-        paddle.centerX = newCenterX.coerceIn(halfW, screenWidth - halfW)
+        paddle.centerX = newX.coerceIn(halfW, screenWidth - halfW)
 
         if (isBallAttached.value && activeBalls.isNotEmpty()) {
             val ball = activeBalls.first()
@@ -392,8 +407,24 @@ class VikingArkanoidEngine(
         score.intValue += ship.type.scoreValue
         jarlCheerAnim.floatValue = 1.0f
 
-        val dropType = ship.powerUpType ?: if (Random.nextFloat() < 0.28f) {
-            PowerUpType.entries.random()
+        val dropType = ship.powerUpType ?: if (Random.nextFloat() < 0.32f) {
+            val beneficial = listOf(
+                PowerUpType.MJOLNIR,
+                PowerUpType.MULTIBALL,
+                PowerUpType.SURTR_FIRE,
+                PowerUpType.BALLISTAS,
+                PowerUpType.SHIELD_EXPAND,
+                PowerUpType.REPAIR_LIFE,
+                PowerUpType.FROST_NOVA,
+                PowerUpType.GUNGNIR_SPEAR,
+                PowerUpType.VORTEX_MAGNET
+            )
+            val curses = listOf(
+                PowerUpType.LOKI_CURSE,
+                PowerUpType.FROZEN_KEEL,
+                PowerUpType.POWDER_KEG
+            )
+            if (Random.nextFloat() < 0.22f) curses.random() else beneficial.random()
         } else null
 
         if (dropType != null) {
@@ -415,8 +446,8 @@ class VikingArkanoidEngine(
     private fun handlePowerUpCollected(type: PowerUpType) {
         jarlCheerAnim.floatValue = 1.0f
 
-        // Ship evolution upgrade on shield/ballista/repair power-ups!
-        if (type == PowerUpType.SHIELD_EXPAND || type == PowerUpType.BALLISTAS || type == PowerUpType.REPAIR_LIFE) {
+        // Ship evolution upgrade on beneficial power-ups
+        if (type == PowerUpType.SHIELD_EXPAND || type == PowerUpType.BALLISTAS || type == PowerUpType.REPAIR_LIFE || type == PowerUpType.FROST_NOVA || type == PowerUpType.GUNGNIR_SPEAR) {
             val upgraded = paddle.upgradeTier()
             if (upgraded) {
                 soundSynthesizer.playShipUpgrade()
@@ -468,6 +499,70 @@ class VikingArkanoidEngine(
             PowerUpType.REPAIR_LIFE -> {
                 lives.intValue = (lives.intValue + 1).coerceAtMost(5)
             }
+            PowerUpType.FROST_NOVA -> {
+                frostNovaTimer = 6.5f
+                soundSynthesizer.playFrostFreeze()
+                collisionEngine.floatingTexts.add(
+                    FloatingText(x = paddle.centerX, y = paddle.top - 25f, text = "¡FLOTA CONGELADA! ❄️", color = Color(0xFF00E5FF))
+                )
+            }
+            PowerUpType.GUNGNIR_SPEAR -> {
+                soundSynthesizer.playGungnirBeam()
+                hapticManager.onVesselFilled()
+                // Launch celestial piercing spear that obliterates a vertical column of enemy ships
+                val spearX = paddle.centerX
+                for (ship in enemyShips) {
+                    if (!ship.isDestroyed && !ship.isSinking && spearX in (ship.left - 20f)..(ship.right + 20f)) {
+                        ship.hit(4)
+                        collisionEngine.splinters.add(
+                            SplinterParticle(x = ship.x, y = ship.y, vx = 0f, vy = -180f, color = Color(0xFFFFD700))
+                        )
+                        if (ship.isDestroyed) {
+                            handleShipDestroyed(ship)
+                        }
+                    }
+                }
+                collisionEngine.floatingTexts.add(
+                    FloatingText(x = spearX, y = paddle.top - 25f, text = "¡LANZA DE GUNGNIR! ⚡", color = Color(0xFFFFD700))
+                )
+            }
+            PowerUpType.VORTEX_MAGNET -> {
+                paddle.activateMagnet(8.0f)
+                soundSynthesizer.playPowerUpCatch()
+                collisionEngine.floatingTexts.add(
+                    FloatingText(x = paddle.centerX, y = paddle.top - 25f, text = "¡VÓRTICE DE RUNAS! 🌀", color = Color(0xFF00E676))
+                )
+            }
+            PowerUpType.LOKI_CURSE -> {
+                paddle.applyLokiCurse(6.0f)
+                soundSynthesizer.playCurseTrigger()
+                collisionEngine.screenShakeAmount = 10f
+                collisionEngine.floatingTexts.add(
+                    FloatingText(x = paddle.centerX, y = paddle.top - 25f, text = "¡MALEFICIO DE LOKI! 😈", color = Color(0xFFE040FB))
+                )
+            }
+            PowerUpType.FROZEN_KEEL -> {
+                paddle.applyFrozenKeel(6.0f)
+                soundSynthesizer.playCurseTrigger()
+                collisionEngine.floatingTexts.add(
+                    FloatingText(x = paddle.centerX, y = paddle.top - 25f, text = "¡QUILLA HELADA (-50% VEL)! 🧊", color = Color(0xFF80DEEA))
+                )
+            }
+            PowerUpType.POWDER_KEG -> {
+                soundSynthesizer.playShipExplosion()
+                collisionEngine.screenShakeAmount = 22f
+                hapticManager.onVesselFilled()
+                val downgraded = paddle.downgradeTier()
+                if (!downgraded) {
+                    lives.intValue--
+                    if (lives.intValue <= 0) {
+                        _gameState.value = GameState.VOID_OVERLOAD
+                    }
+                }
+                collisionEngine.floatingTexts.add(
+                    FloatingText(x = paddle.centerX, y = paddle.top - 25f, text = "¡BARRIL EXPLOSIVO! 💥", color = Color(0xFFFF5722))
+                )
+            }
         }
     }
 
@@ -498,14 +593,27 @@ class VikingArkanoidEngine(
     }
 
     fun update(dt: Float, width: Float, height: Float) {
+        if (isPaused.value) return
+
         screenWidth = width
         screenHeight = height
 
         paddle.y = height * 0.86f
         paddle.updateTimers(dt)
 
+        if (frostNovaTimer > 0f) {
+            frostNovaTimer = (frostNovaTimer - dt).coerceAtLeast(0f)
+        }
+
         if (jarlCheerAnim.floatValue > 0f) {
             jarlCheerAnim.floatValue = (jarlCheerAnim.floatValue - dt * 2f).coerceAtLeast(0f)
+        }
+
+        val safeDt = dt.coerceIn(0.001f, 0.05f)
+
+        // Dynamic Ocean Swells update
+        for (swell in oceanSwells) {
+            swell.update(if (frostNovaTimer > 0f) safeDt * 0.2f else safeDt, height)
         }
 
         // 1. Ambient Weather Particles
@@ -549,31 +657,31 @@ class VikingArkanoidEngine(
 
         if (_gameState.value != GameState.PLAYING) return
 
-        val safeDt = dt.coerceIn(0.001f, 0.05f)
+        // 4. Update Enemy Ship Movement & Cannonball Fire (Frozen if Frost Nova is active)
+        if (frostNovaTimer <= 0f) {
+            for (ship in enemyShips) {
+                if (ship.isSinking) continue
+                ship.updateMovement(safeDt, width)
 
-        // 4. Update Enemy Ship Movement & Cannonball Fire
-        for (ship in enemyShips) {
-            if (ship.isSinking) continue
-            ship.updateMovement(safeDt, width)
-
-            // Cannon firing
-            if (ship.canShoot) {
-                ship.cannonCooldown -= safeDt
-                if (ship.cannonCooldown <= 0f) {
-                    cannonBalls.add(
-                        CannonBall(x = ship.x, y = ship.bottom + 6f, vy = 380f)
-                    )
-                    soundSynthesizer.playCannonFire()
-                    ship.cannonCooldown = if (ship.type.isBoss) 2.2f else Random.nextFloat() * 5f + 4f
+                // Cannon firing
+                if (ship.canShoot) {
+                    ship.cannonCooldown -= safeDt
+                    if (ship.cannonCooldown <= 0f) {
+                        cannonBalls.add(
+                            CannonBall(x = ship.x, y = ship.bottom + 6f, vy = 380f)
+                        )
+                        soundSynthesizer.playCannonFire()
+                        ship.cannonCooldown = if (ship.type.isBoss) 2.2f else Random.nextFloat() * 5f + 4f
+                    }
                 }
-            }
 
-            // If an enemy ship reaches paddle line: emergency life lost!
-            if (ship.bottom >= paddle.top - 15f && !ship.isDestroyed) {
-                ship.hit(99)
-                lives.intValue--
-                soundSynthesizer.playBallLost()
-                collisionEngine.screenShakeAmount = 18f
+                // If an enemy ship reaches paddle line: emergency life lost!
+                if (ship.bottom >= paddle.top - 15f && !ship.isDestroyed) {
+                    ship.hit(99)
+                    lives.intValue--
+                    soundSynthesizer.playBallLost()
+                    collisionEngine.screenShakeAmount = 18f
+                }
             }
         }
 
@@ -668,7 +776,14 @@ class VikingArkanoidEngine(
             }
         }
 
-        // 7. Move Projectiles
+        // 7. Dynamic Ocean Swell Wave Interceptions (Waves block cannonballs & projectiles)
+        collisionEngine.checkWaveInterceptions(
+            swells = oceanSwells,
+            projectiles = projectiles,
+            cannonBalls = cannonBalls
+        )
+
+        // 8. Move Projectiles
         collisionEngine.checkProjectileShipCollisions(
             projectiles = projectiles,
             ships = enemyShips,
@@ -681,7 +796,19 @@ class VikingArkanoidEngine(
             if (p.y < 0) projIter.remove()
         }
 
-        // 8. Move Power-Up Drops
+        // 9. Move Power-Up Drops (with Vortex Magnet pull if active)
+        if (paddle.isMagnetActive) {
+            for (d in powerUps) {
+                val dx = paddle.centerX - d.x
+                val dy = paddle.top - d.y
+                val dist = kotlin.math.hypot(dx.toDouble(), dy.toDouble()).toFloat()
+                if (dist > 12f) {
+                    d.x += (dx / dist) * 320f * safeDt
+                    d.y += (dy / dist) * 320f * safeDt
+                }
+            }
+        }
+
         collisionEngine.checkPowerUpCatch(
             powerUps = powerUps,
             paddle = paddle,
@@ -694,7 +821,7 @@ class VikingArkanoidEngine(
             if (d.y > height) dropIter.remove()
         }
 
-        // 9. Move Balls and Check Collisions
+        // 10. Move Balls and Check Collisions
         val ballIter = activeBalls.iterator()
         while (ballIter.hasNext()) {
             val ball = ballIter.next()

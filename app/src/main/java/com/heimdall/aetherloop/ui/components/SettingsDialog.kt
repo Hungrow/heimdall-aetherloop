@@ -60,15 +60,35 @@ fun SettingsDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Ajustes de Batalla",
-                        color = TextPrimary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Column {
+                        Text(
+                            text = "PAUSA Y AJUSTES",
+                            color = HeimdallGold,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 1.sp
+                        )
+                        Text(
+                            text = "Partida en pausa",
+                            color = TextSecondary,
+                            fontSize = 12.sp
+                        )
+                    }
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.Default.Close, contentDescription = "Cerrar", tint = TextSecondary)
                     }
+                }
+
+                // Resume Game Button
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = HeimdallGold),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = CosmosDark)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("CONTINUAR COMBATE", color = CosmosDark, fontWeight = FontWeight.Black, fontSize = 13.sp)
                 }
 
                 // Audio & Haptics Toggles

@@ -32,6 +32,9 @@ class SoundSynthesizer {
     /**
      * Atmospheric, slow Norse harp & cello arpeggio for Main Menu.
      */
+    /**
+     * Atmospheric, rich Norse tagelharpa & ambient cello arpeggio for Main Menu.
+     */
     fun startMenuMusic() {
         if (isMusicMuted) return
         if (currentMusicJob?.isActive == true && !isPlayingBattleMusic) return
@@ -39,24 +42,21 @@ class SoundSynthesizer {
         stopMusic()
         isPlayingBattleMusic = false
         currentMusicJob = scope.launch {
-            // Dorian / Pentatonic D minor arpeggio (D3, F3, A3, C4, D4, E4, F4, A4)
-            val notes = doubleArrayOf(146.83, 174.61, 220.00, 261.63, 293.66, 329.63, 349.23, 440.00)
-            val pattern = intArrayOf(0, 2, 4, 1, 3, 5, 2, 4, 7, 5, 3, 1)
+            // Nordic modal sequence in D Dorian (D3, F3, G3, A3, C4, D4, E4, F4)
+            val melody = doubleArrayOf(146.83, 174.61, 196.00, 220.00, 261.63, 293.66, 261.63, 220.00, 196.00, 174.61)
+            var idx = 0
 
             while (isActive && !isMusicMuted) {
-                for (noteIdx in pattern) {
-                    if (!isActive || isMusicMuted) break
-                    val freq = notes[noteIdx % notes.size]
-                    // Plucked string envelope
-                    playPluckedTone(freq, durationMs = 380, volume = 0.16f, droneFreq = 73.42) // D2 root drone
-                    delay(350L)
-                }
+                val freq = melody[idx % melody.size]
+                playNordicAcousticPluck(freq, durationMs = 450, volume = 0.18f, rootDrone = 73.42)
+                delay(400L)
+                idx++
             }
         }
     }
 
     /**
-     * Driving, intense Norse war rhythm with percussion and war horns for In-Game battle.
+     * Driving Norse war march with deep resonant acoustic war drums and heavy brass horn chords.
      */
     fun startBattleMusic() {
         if (isMusicMuted) return
@@ -65,17 +65,17 @@ class SoundSynthesizer {
         stopMusic()
         isPlayingBattleMusic = true
         currentMusicJob = scope.launch {
-            // Driving D minor war ostinato with drum pulses
-            val bassRiff = doubleArrayOf(146.83, 146.83, 174.61, 146.83, 220.00, 196.00, 174.61, 130.81)
+            // Heavy D minor battle cadence with dual drums
+            val warChords = doubleArrayOf(146.83, 146.83, 174.61, 146.83, 220.00, 196.00, 174.61, 130.81)
             var beat = 0
 
             while (isActive && !isMusicMuted) {
-                val freq = bassRiff[beat % bassRiff.size]
-                val isHeavyBeat = (beat % 4 == 0)
-                
-                // Play drum + bass note simultaneously
-                playWarBeat(freq, isDrum = isHeavyBeat, durationMs = 210, volume = 0.20f)
-                delay(200L)
+                val freq = warChords[beat % warChords.size]
+                val isKickDrum = (beat % 2 == 0)
+                val isWarHorn = (beat % 4 == 0)
+
+                playNordicWarBeat(freq, isKickDrum = isKickDrum, isHorn = isWarHorn, durationMs = 240, volume = 0.22f)
+                delay(220L)
                 beat++
             }
         }
@@ -89,6 +89,54 @@ class SoundSynthesizer {
     // -------------------------------------------------------------
     // SOUND EFFECTS (SFX)
     // -------------------------------------------------------------
+
+    fun playWaterSplash() {
+        if (isMuted) return
+        scope.launch {
+            // Realistic ocean wave splash and bubbling foam
+            val numSamples = (sampleRate * 0.18).toInt()
+            val buffer = ShortArray(numSamples)
+            for (i in 0 until numSamples) {
+                val t = i.toDouble() / sampleRate
+                val env = exp(-16.0 * t)
+                val noise = (Math.random() - 0.5) * 0.75
+                val waveSwell = sin(2.0 * PI * 130.0 * t) * 0.4
+                val sample = (waveSwell + noise) * env * 0.45 * Short.MAX_VALUE
+                buffer[i] = sample.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+            }
+            playRawBuffer(buffer)
+        }
+    }
+
+    fun playFrostFreeze() {
+        if (isMuted) return
+        scope.launch {
+            val notes = doubleArrayOf(880.0, 1174.66, 1567.98)
+            for (f in notes) {
+                playTone(frequency = f, durationMs = 80, volume = 0.28f, decaySpeed = 30.0)
+                delay(40L)
+            }
+        }
+    }
+
+    fun playGungnirBeam() {
+        if (isMuted) return
+        scope.launch {
+            playTone(frequency = 784.0, durationMs = 180, volume = 0.4f, decaySpeed = 12.0)
+        }
+    }
+
+    fun playCurseTrigger() {
+        if (isMuted) return
+        scope.launch {
+            // Dark sinister descending dissonance
+            val notes = doubleArrayOf(330.0, 311.13, 293.66, 277.18)
+            for (f in notes) {
+                playTone(frequency = f, durationMs = 90, volume = 0.38f, decaySpeed = 20.0)
+                delay(60L)
+            }
+        }
+    }
 
     fun playPaddleHit() {
         if (isMuted) return
@@ -270,32 +318,53 @@ class SoundSynthesizer {
         playRawBuffer(buffer)
     }
 
-    private fun playPluckedTone(freq: Double, durationMs: Int, volume: Float, droneFreq: Double) {
+    private fun playNordicAcousticPluck(freq: Double, durationMs: Int, volume: Float, rootDrone: Double) {
         val numSamples = (sampleRate * (durationMs / 1000.0)).toInt()
         val buffer = ShortArray(numSamples)
         for (i in 0 until numSamples) {
             val t = i.toDouble() / sampleRate
-            val env = exp(-8.0 * t)
-            val plucked = sin(2.0 * PI * freq * t) * env
-            val drone = sin(2.0 * PI * droneFreq * t) * 0.4
+            val env = exp(-6.5 * t)
+            // Acoustic string harmonics (fundamental + subtle 2nd & 3rd octave harmonics for warm wooden timbre)
+            val h1 = sin(2.0 * PI * freq * t)
+            val h2 = sin(4.0 * PI * freq * t) * 0.45
+            val h3 = sin(6.0 * PI * freq * t) * 0.2
+            val plucked = (h1 + h2 + h3) * env
+
+            // Resonant low cello drone
+            val droneEnv = exp(-3.0 * t)
+            val drone = sin(2.0 * PI * rootDrone * t) * 0.3 * droneEnv
+
             val sample = (plucked + drone) * volume * Short.MAX_VALUE
             buffer[i] = sample.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
         }
         playRawBuffer(buffer)
     }
 
-    private fun playWarBeat(freq: Double, isDrum: Boolean, durationMs: Int, volume: Float) {
+    private fun playNordicWarBeat(freq: Double, isKickDrum: Boolean, isHorn: Boolean, durationMs: Int, volume: Float) {
         val numSamples = (sampleRate * (durationMs / 1000.0)).toInt()
         val buffer = ShortArray(numSamples)
         for (i in 0 until numSamples) {
             val t = i.toDouble() / sampleRate
-            val env = exp(-14.0 * t)
+            val env = exp(-10.0 * t)
+            // Low-end acoustic bass rhythm
             val bass = sin(2.0 * PI * freq * t) * env
-            val drum = if (isDrum) {
-                val drumEnv = exp(-22.0 * t)
-                (sin(2.0 * PI * 65.0 * t) + (Math.random() - 0.5) * 0.4) * drumEnv * 0.8
+
+            // Deep Bodhrán / Taiko War Drum (sub-bass 50Hz punch with resonant body decay)
+            val drum = if (isKickDrum) {
+                val drumEnv = exp(-18.0 * t)
+                val punch = sin(2.0 * PI * 48.0 * t) * drumEnv * 1.3
+                val woodBody = (Math.random() - 0.5) * 0.25 * drumEnv
+                punch + woodBody
             } else 0.0
-            val sample = (bass + drum) * volume * Short.MAX_VALUE
+
+            // War horn chord layer
+            val horn = if (isHorn) {
+                val hornEnv = exp(-7.0 * t)
+                val hFreq = freq * 1.5
+                sin(2.0 * PI * hFreq * t) * hornEnv * 0.35
+            } else 0.0
+
+            val sample = (bass + drum + horn) * volume * Short.MAX_VALUE
             buffer[i] = sample.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
         }
         playRawBuffer(buffer)

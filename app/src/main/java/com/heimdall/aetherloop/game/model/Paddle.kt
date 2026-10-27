@@ -11,13 +11,19 @@ data class Paddle(
     var centerX: Float = 500f,
     var y: Float = 1600f,
     var tier: Int = 2, // 1 to 4
-    var baseWidth: Float = 210f,
-    var width: Float = 210f,
-    var height: Float = 28f,
+    var baseWidth: Float = 230f,
+    var width: Float = 230f,
+    var height: Float = 38f,
     var hasBallistas: Boolean = false,
     var ballistaTimer: Float = 0f,
     var expandTimer: Float = 0f,
-    var flashAnim: Float = 0f
+    var flashAnim: Float = 0f,
+    var isLokiCursed: Boolean = false,
+    var lokiCurseTimer: Float = 0f,
+    var isKeelFrozen: Boolean = false,
+    var keelFrozenTimer: Float = 0f,
+    var isMagnetActive: Boolean = false,
+    var magnetTimer: Float = 0f
 ) {
     val left: Float
         get() = centerX - width / 2f
@@ -41,12 +47,19 @@ data class Paddle(
 
     fun applyTierDimensions() {
         baseWidth = when (tier) {
-            1 -> 160f
-            2 -> 210f
-            3 -> 260f
-            else -> 310f
+            1 -> 180f
+            2 -> 230f
+            3 -> 280f
+            else -> 340f
         }
-        width = if (expandTimer > 0f) baseWidth * 1.35f else baseWidth
+        height = when (tier) {
+            1 -> 28f
+            2 -> 38f
+            3 -> 50f
+            else -> 62f
+        }
+        val currentExpMultiplier = if (isLokiCursed) 0.7f else if (expandTimer > 0f) 1.35f else 1.0f
+        width = baseWidth * currentExpMultiplier
         if (tier >= 3) {
             hasBallistas = true
             ballistaTimer = Float.MAX_VALUE
@@ -88,9 +101,47 @@ data class Paddle(
         if (expandTimer > 0f) {
             expandTimer -= dt
             if (expandTimer <= 0f) {
-                width = baseWidth
+                applyTierDimensions()
             }
         }
+
+        if (lokiCurseTimer > 0f) {
+            lokiCurseTimer -= dt
+            if (lokiCurseTimer <= 0f) {
+                isLokiCursed = false
+                applyTierDimensions()
+            }
+        }
+
+        if (keelFrozenTimer > 0f) {
+            keelFrozenTimer -= dt
+            if (keelFrozenTimer <= 0f) {
+                isKeelFrozen = false
+            }
+        }
+
+        if (magnetTimer > 0f) {
+            magnetTimer -= dt
+            if (magnetTimer <= 0f) {
+                isMagnetActive = false
+            }
+        }
+    }
+
+    fun applyLokiCurse(duration: Float = 6.0f) {
+        isLokiCursed = true
+        lokiCurseTimer = duration
+        applyTierDimensions()
+    }
+
+    fun applyFrozenKeel(duration: Float = 6.0f) {
+        isKeelFrozen = true
+        keelFrozenTimer = duration
+    }
+
+    fun activateMagnet(duration: Float = 8.0f) {
+        isMagnetActive = true
+        magnetTimer = duration
     }
 
     fun activateBallistas(duration: Float = 8.5f) {

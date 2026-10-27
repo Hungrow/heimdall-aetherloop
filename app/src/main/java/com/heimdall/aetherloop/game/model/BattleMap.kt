@@ -1,6 +1,8 @@
 package com.heimdall.aetherloop.game.model
 
 import androidx.compose.ui.graphics.Color
+import kotlin.math.PI
+import kotlin.math.sin
 
 enum class MapBiome(
     val realmName: String,
@@ -13,53 +15,53 @@ enum class MapBiome(
     val ambientColor: Color
 ) {
     VIGRID_FJORD(
-        realmName = "Fiordo de Vigrid",
-        subtitle = "Costas Sagradas de Asgard",
+        realmName = "Mar de Vigrid",
+        subtitle = "Costas y Fiordos de Asgard",
         runeSymbol = "ᛊ",
-        skyColors = listOf(Color(0xFF030D1A), Color(0xFF071F36), Color(0xFF0C2E4E), Color(0xFF08223B)),
-        waterColors = listOf(Color(0xFF071D33), Color(0xFF0A2B4C), Color(0xFF061A2D)),
-        waveFoamColor = Color(0x3300E5FF),
+        skyColors = listOf(Color(0xFF0D253A), Color(0xFF163E5C), Color(0xFF22587E)),
+        waterColors = listOf(Color(0xFF0F324E), Color(0xFF13456B), Color(0xFF09253C)),
+        waveFoamColor = Color(0x66E0F7FA),
         ambientParticleType = AmbientParticleType.SEA_SPRAY,
-        ambientColor = Color(0x4000E5FF)
+        ambientColor = Color(0x6000E5FF)
     ),
     NIFLHEIM_ICE(
-        realmName = "Glaciar de Niflheim",
-        subtitle = "Mar de Escarcha y Nieblas",
+        realmName = "Océano Helado de Niflheim",
+        subtitle = "Mar Glacial de Icebergs y Escarcha",
         runeSymbol = "ᚺ",
-        skyColors = listOf(Color(0xFF030914), Color(0xFF0A1B2E), Color(0xFF132B45), Color(0xFF0E2238)),
-        waterColors = listOf(Color(0xFF091F38), Color(0xFF12345A), Color(0xFF0B213D)),
-        waveFoamColor = Color(0x44E0F7FA),
+        skyColors = listOf(Color(0xFF0E2235), Color(0xFF193B58), Color(0xFF27587F)),
+        waterColors = listOf(Color(0xFF0E3852), Color(0xFF164E72), Color(0xFF0B2B41)),
+        waveFoamColor = Color(0x77FFFFFF),
         ambientParticleType = AmbientParticleType.SNOWFLAKE,
-        ambientColor = Color(0x60B2EBF2)
+        ambientColor = Color(0x70E0F7FA)
     ),
     MUSPELHEIM_MAGMA(
-        realmName = "Abismo de Muspelheim",
-        subtitle = "Océano de Fuego y Cenizas",
+        realmName = "Mar de Fuego de Muspelheim",
+        subtitle = "Tempestad Volcánica Oceánica",
         runeSymbol = "ᚲ",
-        skyColors = listOf(Color(0xFF140503), Color(0xFF2E0C06), Color(0xFF45140A), Color(0xFF260803)),
-        waterColors = listOf(Color(0xFF1F0804), Color(0xFF380E08), Color(0xFF140502)),
-        waveFoamColor = Color(0x44FF5722),
+        skyColors = listOf(Color(0xFF2C0F08), Color(0xFF4A180E), Color(0xFF6B2516)),
+        waterColors = listOf(Color(0xFF33120A), Color(0xFF4E1D11), Color(0xFF220A06)),
+        waveFoamColor = Color(0x77FFAB91),
         ambientParticleType = AmbientParticleType.FIRE_EMBER,
-        ambientColor = Color(0x66FF9800)
+        ambientColor = Color(0x77FF6D00)
     ),
     HELHEIM_ABYSS(
-        realmName = "Aguas del Helheim",
-        subtitle = "Fiordo Sombrío de las Almas",
+        realmName = "Océano Espectral de Helheim",
+        subtitle = "Aguas Brumosas de los Caídos",
         runeSymbol = "ᛗ",
-        skyColors = listOf(Color(0xFF090314), Color(0xFF1A0A2E), Color(0xFF2C1248), Color(0xFF150624)),
-        waterColors = listOf(Color(0xFF130624), Color(0xFF240C40), Color(0xFF0D031A)),
-        waveFoamColor = Color(0x33D500F9),
+        skyColors = listOf(Color(0xFF1A0F2B), Color(0xFF2D1B48), Color(0xFF432A69)),
+        waterColors = listOf(Color(0xFF1F1235), Color(0xFF311C54), Color(0xFF150A24)),
+        waveFoamColor = Color(0x66EA80FC),
         ambientParticleType = AmbientParticleType.SPIRIT_WISP,
-        ambientColor = Color(0x55E040FB)
+        ambientColor = Color(0x66E040FB)
     ),
     BIFROST_ASTRAL(
-        realmName = "Vórtice del Bifröst",
-        subtitle = "Circuito Cósmico Estelar",
+        realmName = "Gran Mar del Norte",
+        subtitle = "Tempestad Nórdica de los Dioses",
         runeSymbol = "ᚱ",
-        skyColors = listOf(Color(0xFF02040D), Color(0xFF060B21), Color(0xFF0E1438), Color(0xFF050817)),
-        waterColors = listOf(Color(0xFF080F2B), Color(0xFF101E4D), Color(0xFF05091C)),
-        waveFoamColor = Color(0x44FFD700),
-        ambientParticleType = AmbientParticleType.STARDUST,
+        skyColors = listOf(Color(0xFF0E1A33), Color(0xFF162A52), Color(0xFF233F78)),
+        waterColors = listOf(Color(0xFF11264B), Color(0xFF183B75), Color(0xFF0B1934)),
+        waveFoamColor = Color(0x77FFE082),
+        ambientParticleType = AmbientParticleType.SEA_SPRAY,
         ambientColor = Color(0x66FFD700)
     );
 
@@ -83,6 +85,38 @@ enum class AmbientParticleType {
     FIRE_EMBER,
     SPIRIT_WISP,
     STARDUST
+}
+
+/**
+ * Dynamic Ocean Swell wave that sweeps across the sea.
+ *
+ * When surging at peak crest (isBlocking = true), it acts as an ocean barrier
+ * that intercepts and absorbs enemy cannonballs and player laser shots!
+ */
+data class OceanSwell(
+    val id: Long,
+    var y: Float,
+    var height: Float = 36f,
+    var vy: Float = 32f,
+    var surgeTimer: Float = 0f,
+    val period: Float = 5.2f,
+    var isBlocking: Boolean = false,
+    var crestAlpha: Float = 0f
+) {
+    fun update(dt: Float, screenHeight: Float) {
+        surgeTimer += dt
+        val phase = (surgeTimer % period) / period
+        val surgeStrength = (sin(phase * 2.0 * PI).toFloat() + 1f) / 2f
+        isBlocking = surgeStrength > 0.65f
+        crestAlpha = surgeStrength.coerceIn(0.2f, 1.0f)
+
+        y += vy * dt
+        val lowerLimit = screenHeight * 0.80f
+        val upperLimit = screenHeight * 0.28f
+        if (y > lowerLimit) {
+            y = upperLimit
+        }
+    }
 }
 
 /**

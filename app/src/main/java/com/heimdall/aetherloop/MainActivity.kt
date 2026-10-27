@@ -144,7 +144,10 @@ class MainActivity : ComponentActivity() {
                             // 2. In-Game HUD Overlay
                             ArkanoidHudOverlay(
                                 engine = engine,
-                                onOpenSettings = { showSettings = true }
+                                onOpenSettings = {
+                                    engine.isPaused.value = true
+                                    showSettings = true
+                                }
                             )
 
                             // 3. Mission Briefing Modal
@@ -189,12 +192,16 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    // Global Settings Dialog
+                    // Global Settings & In-Game Pause Dialog
                     if (showSettings) {
                         SettingsDialog(
                             engine = engine,
-                            onDismiss = { showSettings = false },
+                            onDismiss = {
+                                engine.isPaused.value = false
+                                showSettings = false
+                            },
                             onReturnToMenu = {
+                                engine.isPaused.value = false
                                 currentScreen = AppScreen.MAIN_MENU
                                 if (progressManager.isMusicEnabled()) {
                                     soundSynthesizer.startMenuMusic()

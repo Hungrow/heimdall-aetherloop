@@ -212,6 +212,86 @@ class CollisionEngine(
     }
 
     /**
+     * Intercepts and absorbs player laser bolts and enemy cannonballs when an Ocean Swell wave
+     * surges at peak crest!
+     */
+    fun checkWaveInterceptions(
+        swells: List<OceanSwell>,
+        projectiles: MutableList<Projectile>,
+        cannonBalls: MutableList<CannonBall>
+    ) {
+        val blockingSwells = swells.filter { it.isBlocking }
+        if (blockingSwells.isEmpty()) return
+
+        // Intercept player projectiles
+        val projIter = projectiles.iterator()
+        while (projIter.hasNext()) {
+            val p = projIter.next()
+            for (swell in blockingSwells) {
+                val halfH = swell.height * 0.6f
+                if (p.y in (swell.y - halfH)..(swell.y + halfH)) {
+                    // Blocked by wave!
+                    waterRipples.add(
+                        WaterRipple(x = p.x, y = p.y, maxRadius = 38f, color = Color(0xFF00E5FF))
+                    )
+                    for (i in 0 until 4) {
+                        splinters.add(
+                            SplinterParticle(
+                                x = p.x,
+                                y = p.y,
+                                vx = (Random.nextFloat() - 0.5f) * 160f,
+                                vy = -Random.nextFloat() * 120f,
+                                color = Color(0xFFE0F7FA),
+                                size = 3f
+                            )
+                        )
+                    }
+                    floatingTexts.add(
+                        FloatingText(x = p.x, y = p.y - 12f, text = "¡OLA! 🌊", color = Color(0xFF00E5FF))
+                    )
+                    soundSynthesizer.playWaterSplash()
+                    projIter.remove()
+                    break
+                }
+            }
+        }
+
+        // Intercept enemy cannonballs
+        val cbIter = cannonBalls.iterator()
+        while (cbIter.hasNext()) {
+            val cb = cbIter.next()
+            for (swell in blockingSwells) {
+                val halfH = swell.height * 0.6f
+                if (cb.y in (swell.y - halfH)..(swell.y + halfH)) {
+                    // Absorbed by wave crest!
+                    waterRipples.add(
+                        WaterRipple(x = cb.x, y = cb.y, maxRadius = 45f, color = Color(0xFF00E5FF))
+                    )
+                    for (i in 0 until 6) {
+                        splinters.add(
+                            SplinterParticle(
+                                x = cb.x,
+                                y = cb.y,
+                                vx = (Random.nextFloat() - 0.5f) * 180f,
+                                vy = -Random.nextFloat() * 140f,
+                                color = Color(0xFF80DEEA),
+                                size = 3.5f
+                            )
+                        )
+                    }
+                    floatingTexts.add(
+                        FloatingText(x = cb.x, y = cb.y - 12f, text = "¡OLA! 🌊", color = Color(0xFF80DEEA))
+                    )
+                    soundSynthesizer.playWaterSplash()
+                    hapticManager.onParticleCaptured()
+                    cbIter.remove()
+                    break
+                }
+            }
+        }
+    }
+
+    /**
      * Resolves ballista projectiles vs enemy ships.
      */
     fun checkProjectileShipCollisions(
