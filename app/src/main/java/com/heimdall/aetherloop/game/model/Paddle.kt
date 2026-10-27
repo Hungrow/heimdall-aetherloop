@@ -14,6 +14,7 @@ data class Paddle(
     var baseWidth: Float = 230f,
     var width: Float = 230f,
     var height: Float = 38f,
+    var velocityX: Float = 0f,
     var hasBallistas: Boolean = false,
     var ballistaTimer: Float = 0f,
     var expandTimer: Float = 0f,

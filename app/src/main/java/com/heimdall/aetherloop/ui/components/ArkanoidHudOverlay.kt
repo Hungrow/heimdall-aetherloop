@@ -135,6 +135,29 @@ fun ArkanoidHudOverlay(
             }
         }
 
+        // COMBO MULTIPLIER BANNER
+        if (engine.comboStreak.intValue >= 2) {
+            val comboCount = engine.comboStreak.intValue
+            val mult = engine.comboMultiplier
+            Row(
+                modifier = Modifier
+                    .padding(top = 6.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFF261000).copy(alpha = 0.90f))
+                    .border(1.5.dp, Color(0xFFFF9100), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "🔥 COMBO $comboCount • x$mult FURIA VIKINGA",
+                    color = HeimdallGold,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.sp
+                )
+            }
+        }
+
         // BOTTOM CONTROLS & LAUNCH PROMPT
         Column(
             modifier = Modifier

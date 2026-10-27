@@ -10,40 +10,72 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.heimdall.aetherloop.R
+import com.heimdall.aetherloop.core.PlayerProgressManager
 import com.heimdall.aetherloop.game.model.FleetWave
 import com.heimdall.aetherloop.ui.theme.*
 
 /**
- * Odin's Mythical Lore & Tactical Counsel Dialog.
+ * Dynamic Saga Counsel of Odin, the All-Father.
  *
- * Odin, the All-Father, introduces the saga lore and tactical wisdom
- * regarding ocean swell barriers, god runes, and Loki's curses before battle begins.
+ * Provides contextual tactical guidance, authentic Hávamál proverbs,
+ * and personalized lore tailored to the player's name and campaign level.
  */
 @Composable
 fun MissionBriefingDialog(
     wave: FleetWave,
+    progressManager: PlayerProgressManager,
     onStart: () -> Unit
 ) {
     val isBoss = wave.isBossLevel && wave.bossType != null
+    val playerName = progressManager.playerName
+    val lvl = wave.waveNumber
 
-    val loreText = when {
-        isBoss -> "«¡Guardián de Asgard! El temible buque insignia ${wave.bossType?.title ?: "Naglfar"} avanza al frente de la armada enemiga. Sus cañones vomitan fuego negro y sus maderas claman venganza. ¡Apunta con la sagrada esfera rúnica al corazón de su quilla!»"
-        wave.waveNumber == 1 -> "«¡Oye mi llamado, guerrero! Las aguas sagradas del fiordo están siendo invadidas por clanes renegados de Helheim. Desvía la esfera rúnica con tu barco guardián y haz pedazos su flota invasora antes de que toquen nuestras costas.»"
-        wave.waveNumber in 2..24 -> "«El mar de Vigrid se agita. Recuerda que las grandes olas oceánicas de Aegir bloquearán tanto los proyectiles enemigos como nuestras balistas durante su cresta. ¡Aprovecha la corriente y recoge las runas de poder!»"
-        wave.waveNumber in 26..49 -> "«Nos adentramos en las aguas incandescentes de Muspelheim. Fuego y azufre caen del cielo. Desconfía de los barriles volátiles y los maleficios de Loki; ¡busca la Escarcha de Niflheim para congelar a los agresores!»"
-        wave.waveNumber in 51..74 -> "«Las brumas de Niflheim hielan los remos. Los témpanos flotantes pueden cambiar el rumbo de tus disparos, pero la sagrada Lanza de Gungnir perforará columnas enteras de navíos enemigos.»"
-        else -> "«¡La batalla final por el destino de Yggdrasil ha comenzado! La flota del Ragnarök se extiende hasta donde alcanza la vista. ¡Que el trueno de Thor y el canto de las Valquirias guíen tu timón!»"
+    // Dynamic Odin lore generator
+    val loreData = remember(lvl, playerName) {
+        val salutations = listOf(
+            "«¡Oye el llamado de Asgard, $playerName!",
+            "«¡Escucha con atención, valiente $playerName!",
+            "«¡Alza la mirada con orgullo, $playerName!",
+            "«¡Los cuervos Hugin y Munin cantan tu nombre, $playerName!",
+            "«¡Mantén firme la mano en el timón, $playerName!"
+        )
+        val salutation = salutations[lvl % salutations.size]
+
+        val havamalProverbs = listOf(
+            "«El ganado muere, los parientes mueren, uno mismo ha de morir; pero sé de una cosa que jamás perece: la fama de cada muerto que obró con honor.» (Hávamál 76)",
+            "«El necio piensa que vivirá eternamente si esquiva las lanzas; pero la vejez no le dará tregua aunque escape de las armas enemigas.» (Hávamál 16)",
+            "«El fuego es el más preciado tesoro de los hombres, y la vista del sol; gozar de buena salud y vivir sin vergüenza.» (Hávamál 68)",
+            "«No hay mejor fardo para llevar en el viaje que un juicio claro y despierto; en tierras extrañas vale más que las arcas de oro.» (Hávamál 10)",
+            "«Aquel que deba partir al alba no duerma hasta tarde; el lobo que acecha atrapa la presa, el dormilón pierde la batalla.» (Hávamál 58)",
+            "«Sé leal y generoso con el amigo; responde al regalo con regalo, a la risa con franqueza y a la traición con sagacidad.» (Hávamál 42)",
+            "«Ningún hombre es tan sabio que no pueda aprender de los errores del imprudente en la mar brava.» (Hávamál 24)"
+        )
+        val proverb = havamalProverbs[lvl % havamalProverbs.size]
+
+        val mainNarrative = when {
+            lvl == 25 -> "La Serpiente del Océano, Jörmungandr, emerge de las profundidades abisales. Su buque insignia destila veneno negro sobre las aguas de Vigrid. ¡Desvía la sagrada esfera rúnica con fuerza hacia su quilla y no permitas que sus fauces alcancen tu nave!"
+            lvl == 50 -> "¡Las aguas hierven en llamaradas! Surtr, el titán de fuego de Muspelheim, lidera su flota de guerra. Sus cañones de azufre buscarán calcinar tus defensas. ¡Consigue la runa de Escarcha para helar su avance y golpea con determinación!"
+            lvl == 75 -> "Níðhöggr, la bestia de las raíces de Yggdrasil, comanda el Acorazado Glacial. Su armadura de hielo ancestral desviará golpes dispersos. ¡Desata la Lanza divina de Gungnir para partir sus defensas de un solo rayo certero!"
+            lvl == 100 -> "¡HA LLEGADO LA HORA SUPREMA DEL RAGNARÖK! Naglfar, la siniestra nave forjada con las uñas de los caídos, navega al frente de la horda del fin del mundo. Si tu barco zozobra hoy, los Nueve Reinos colapsarán en las sombras. ¡Por Odín, por Valhalla, por la eternidad!"
+            lvl == 1 -> "Las aguas sagradas del fiordo están siendo mancilladas por invasores renegados. Haz rebotar la esfera bendecida con tu drakkar guardián y limpia nuestras costas antes de que desembarquen sus guerreros."
+            lvl in 2..24 -> "Navegamos las corrientes de Vigrid. Recuerda que las grandes olas oceánicas de Aegir bloquearán los disparos en su cresta más alta. Desliza el drakkar con velocidad lateral para imprimir efecto y curvar la esfera hacia sus filas."
+            lvl in 26..49 -> "El frío de Niflheim azota la costa. Cuidado con los maleficios de Loki y los témpanos flotantes; recoge las runas bendecidas de Mjolnir y las balistas para mantener a raya a sus esquifes rápidos."
+            lvl in 51..74 -> "El río de Muspelheim nos rodea de ceniza volcánica. Los enemigos son más rápidos y agresivos. Mantén el ritmo de combate: cada golpe consecutivo activará la FURIA VIKINGA multiplicando tu puntuación."
+            else -> "Estamos en las aguas prohibidas del mar de Helheim. La niebla es densa y los proyectiles enemigos llueven sin cesar. ¡Que la bendición de las Valquirias guíe cada uno de tus impactos!"
+        }
+
+        Triple(salutation, mainNarrative, proverb)
     }
 
     Dialog(onDismissRequest = onStart) {
@@ -52,20 +84,20 @@ fun MissionBriefingDialog(
             colors = CardDefaults.cardColors(containerColor = CosmosSurface),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(12.dp)
                 .border(1.5.dp, HeimdallGold, RoundedCornerShape(26.dp))
         ) {
             Column(
                 modifier = Modifier
-                    .padding(22.dp)
+                    .padding(20.dp)
                     .fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Odin Portrait with Golden Runic Frame
+                // Odin Portrait with Golden Runic Ring
                 Box(
                     modifier = Modifier
-                        .size(80.dp)
+                        .size(76.dp)
                         .clip(CircleShape)
                         .border(3.dp, HeimdallGold, CircleShape)
                         .background(CosmosCard),
@@ -82,7 +114,7 @@ fun MissionBriefingDialog(
                     Text(
                         text = "CONSEJO DEL PADRE DE TODO",
                         color = HeimdallGold,
-                        fontSize = 15.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Black,
                         letterSpacing = 1.2.sp
                     )
@@ -104,13 +136,22 @@ fun MissionBriefingDialog(
                         .border(1.dp, CosmosBorder, RoundedCornerShape(14.dp))
                         .padding(14.dp)
                 ) {
-                    Text(
-                        text = loreText,
-                        color = TextPrimary,
-                        fontSize = 13.sp,
-                        lineHeight = 19.sp,
-                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "${loreData.first} ${loreData.second}",
+                            color = TextPrimary,
+                            fontSize = 12.5.sp,
+                            lineHeight = 18.sp
+                        )
+
+                        Text(
+                            text = loreData.third,
+                            color = HeimdallGold.copy(alpha = 0.9f),
+                            fontSize = 11.5.sp,
+                            lineHeight = 16.sp,
+                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                        )
+                    }
                 }
 
                 // Tactical Wave Summary
@@ -133,7 +174,7 @@ fun MissionBriefingDialog(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = if (isBoss) "💀 JEFE" else "⚔️ FLOTA",
+                            text = if (isBoss) "💀 GRAN JEFE" else "⚔️ FLOTA ENEMIGA",
                             color = if (isBoss) Color(0xFFFF1744) else HeimdallGold,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Black
@@ -143,13 +184,13 @@ fun MissionBriefingDialog(
                     HorizontalDivider(color = CosmosBorder)
 
                     Text(
-                        text = "🌊 Las olas oceánicas bloquean proyectiles al crestar.",
+                        text = "🌊 Desliza el barco rápido para dar efecto y curvar la esfera sagrada.",
                         color = TextSecondary,
                         fontSize = 11.sp
                     )
                     Text(
-                        text = "⚡ Destruye drakkars para obtener runas; esquiva maldiciones de Loki.",
-                        color = TextSecondary,
+                        text = "⚡ Encadena impactos consecutivos para desatar la Furia Vikinga (Multiplicador x2 a x8).",
+                        color = HeimdallGold,
                         fontSize = 11.sp
                     )
                 }
@@ -161,7 +202,7 @@ fun MissionBriefingDialog(
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp)
+                        .height(48.dp)
                 ) {
                     Icon(Icons.Default.PlayArrow, contentDescription = null, tint = CosmosDark)
                     Spacer(modifier = Modifier.width(8.dp))

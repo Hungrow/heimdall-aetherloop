@@ -51,7 +51,13 @@ class CollisionEngine(
             val normalizedHit = ((ball.x - paddle.centerX) / (paddle.width * 0.5f)).coerceIn(-0.95f, 0.95f)
             val currentSpeed = hypot(ball.vx, ball.vy).coerceIn(600f, 1150f) * 1.02f
             val maxAngleRad = 62.0 * (PI / 180.0)
-            val bounceAngle = normalizedHit * maxAngleRad
+            var bounceAngle = normalizedHit * maxAngleRad
+
+            // Dynamic English / Slice spin from paddle drag speed
+            if (abs(paddle.velocityX) > 15f) {
+                val spinSlice = (paddle.velocityX / 900f).coerceIn(-0.35f, 0.35f)
+                bounceAngle = (bounceAngle + spinSlice).coerceIn(-maxAngleRad * 1.08, maxAngleRad * 1.08)
+            }
 
             ball.vx = (currentSpeed * sin(bounceAngle)).toFloat()
             ball.vy = -(currentSpeed * cos(bounceAngle)).toFloat()
@@ -137,7 +143,8 @@ class CollisionEngine(
         ball: Ball,
         ships: MutableList<EnemyShip>,
         onShipDestroyed: (EnemyShip) -> Unit,
-        onBoardingSpawn: ((EnemyShip) -> Unit)? = null
+        onBoardingSpawn: ((EnemyShip) -> Unit)? = null,
+        onShipHit: ((EnemyShip, Boolean) -> Unit)? = null
     ) {
         val iterator = ships.iterator()
         while (iterator.hasNext()) {
@@ -167,6 +174,7 @@ class CollisionEngine(
 
                 val damage = if (isPiercing) 2 else 1
                 val sank = ship.hit(damage)
+                onShipHit?.invoke(ship, sank)
 
                 val particleColor = ship.type.primaryColor
                 for (i in 0 until (if (sank) 14 else 5)) {

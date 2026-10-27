@@ -1,5 +1,6 @@
 package com.heimdall.aetherloop.ui.components
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -16,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
@@ -29,10 +31,10 @@ import com.heimdall.aetherloop.game.model.GameMode
 import com.heimdall.aetherloop.ui.theme.*
 
 /**
- * Main Menu Screen of AetherLoop.
+ * Cinematic Main Menu Screen of AetherLoop: Valhalla Combat.
  *
- * Displays player profile card, sound toggles, game mode switch,
- * and the winding River Level Map (El Río Sagrado Gjöll).
+ * Displays Norse runic header, warrior profile card, saga progression stars,
+ * sound controls, game mode switch, and the Sacred River Gjöll Map.
  */
 @Composable
 fun MainMenuScreen(
@@ -48,6 +50,18 @@ fun MainMenuScreen(
 
     val currentLevel = progressManager.currentCampaignLevel
     val playerAvatar = AvatarCatalog.find(progressManager.avatarId)
+    val totalStars = remember(progressManager.highestCampaignLevel) {
+        (1..100).sumOf { progressManager.getLevelStars(it) }
+    }
+
+    // Dynamic Norse Warrior Title based on highest level
+    val warriorTitle = when {
+        currentLevel >= 100 -> "👑 HÉROE DEL RAGNARÖK"
+        currentLevel >= 75 -> "⚔️ SEÑOR DE LA GUERRA"
+        currentLevel >= 50 -> "🔥 BERSERKER DE FUEGO"
+        currentLevel >= 25 -> "❄️ GUARDIÁN DEL HIELO"
+        else -> "🌲 JARL DE LOS FIORDOS"
+    }
 
     var isSoundOn by remember { mutableStateOf(progressManager.isSoundEnabled()) }
     var isMusicOn by remember { mutableStateOf(progressManager.isMusicEnabled()) }
@@ -62,19 +76,44 @@ fun MainMenuScreen(
                 .fillMaxSize()
                 .statusBarsPadding()
         ) {
-            // 1. TOP PLAYER PROFILE & AUDIO TOOLBAR
+            // 1. CINEMATIC NORSE RUNIC HEADER
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "ᚫ ᛖ ᚦ ᛖ ᚱ ᛚ ᛟ ᛟ ᛈ",
+                    color = HeimdallGold.copy(alpha = 0.85f),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 4.sp
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "• AETHERLOOP •",
+                    color = BifrostCyan,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.5.sp
+                )
+            }
+
+            // 2. TOP PLAYER PROFILE & AUDIO TOOLBAR
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
                     .clip(RoundedCornerShape(18.dp))
-                    .background(CosmosSurface.copy(alpha = 0.95f))
-                    .border(1.dp, CosmosBorder, RoundedCornerShape(18.dp))
+                    .background(CosmosSurface.copy(alpha = 0.96f))
+                    .border(1.2.dp, HeimdallGold.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Profile (Avatar + Name)
+                // Profile (Avatar + Name + Dynamic Title)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.clickable { showAvatarDialog = true }
@@ -107,13 +146,13 @@ fun MainMenuScreen(
                                 imageVector = Icons.Default.Edit,
                                 contentDescription = "Editar",
                                 tint = BifrostCyan,
-                                modifier = Modifier.size(14.dp)
+                                modifier = Modifier.size(13.dp)
                             )
                         }
                         Text(
-                            text = "Nivel Actual: $currentLevel/100",
+                            text = warriorTitle,
                             color = HeimdallGold,
-                            fontSize = 11.sp,
+                            fontSize = 10.5.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -122,7 +161,7 @@ fun MainMenuScreen(
                 // Sound Toggles & Settings Button
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     // Music Toggle
                     IconButton(
@@ -133,13 +172,13 @@ fun MainMenuScreen(
                             soundSynthesizer.isMusicMuted = !newState
                             if (newState) soundSynthesizer.startMenuMusic() else soundSynthesizer.stopMusic()
                         },
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(34.dp)
                     ) {
                         Icon(
                             imageVector = if (isMusicOn) Icons.Default.MusicNote else Icons.Default.MusicOff,
                             contentDescription = "Música",
                             tint = if (isMusicOn) BifrostCyan else Color.Gray,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
 
@@ -151,20 +190,20 @@ fun MainMenuScreen(
                             progressManager.setSoundEnabled(newState)
                             soundSynthesizer.isMuted = !newState
                         },
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(34.dp)
                     ) {
                         Icon(
                             imageVector = if (isSoundOn) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
                             contentDescription = "Sonido",
                             tint = if (isSoundOn) HeimdallGold else Color.Gray,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
 
                     // Settings Button
                     Box(
                         modifier = Modifier
-                            .size(38.dp)
+                            .size(36.dp)
                             .clip(CircleShape)
                             .background(CosmosCard)
                             .border(1.dp, HeimdallGold, CircleShape)
@@ -175,19 +214,20 @@ fun MainMenuScreen(
                             imageVector = Icons.Default.Settings,
                             contentDescription = "Ajustes",
                             tint = HeimdallGold,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(19.dp)
                         )
                     }
                 }
             }
 
-            // 2. GAME MODE SELECTOR TABS
+            // 3. GAME MODE SELECTOR TABS
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 6.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(14.dp))
                     .background(CosmosCard)
+                    .border(1.dp, CosmosBorder, RoundedCornerShape(14.dp))
                     .padding(4.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
@@ -195,7 +235,7 @@ fun MainMenuScreen(
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(11.dp))
                         .background(if (selectedTab == GameMode.STORY_CAMPAIGN) BifrostCyan else Color.Transparent)
                         .clickable { selectedTab = GameMode.STORY_CAMPAIGN }
                         .padding(vertical = 8.dp),
@@ -204,7 +244,7 @@ fun MainMenuScreen(
                     Text(
                         text = "⚔️ RÍO GJÖLL (CAMPAÑA)",
                         color = if (selectedTab == GameMode.STORY_CAMPAIGN) CosmosDark else TextPrimary,
-                        fontSize = 11.sp,
+                        fontSize = 11.5.sp,
                         fontWeight = FontWeight.Black
                     )
                 }
@@ -213,7 +253,7 @@ fun MainMenuScreen(
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(11.dp))
                         .background(if (selectedTab == GameMode.ENDLESS_SURVIVAL) ValkyrieViolet else Color.Transparent)
                         .clickable { selectedTab = GameMode.ENDLESS_SURVIVAL }
                         .padding(vertical = 8.dp),
@@ -222,20 +262,20 @@ fun MainMenuScreen(
                     Text(
                         text = "∞ OLEADAS INFINITAS",
                         color = if (selectedTab == GameMode.ENDLESS_SURVIVAL) CosmosDark else TextPrimary,
-                        fontSize = 11.sp,
+                        fontSize = 11.5.sp,
                         fontWeight = FontWeight.Black
                     )
                 }
             }
 
-            // 3. MAIN CONTENT: RIVER LEVEL MAP OR ENDLESS SURVIVAL
+            // 4. MAIN CONTENT: RIVER LEVEL MAP OR ENDLESS SURVIVAL
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
             ) {
                 if (selectedTab == GameMode.STORY_CAMPAIGN) {
-                    // Winding River Level Map (100 levels)
+                    // Winding Norse River Level Map (100 levels)
                     RiverLevelMap(
                         progressManager = progressManager,
                         onSelectLevel = { lvl -> onStartCampaignLevel(lvl) }
@@ -308,13 +348,13 @@ fun MainMenuScreen(
                 }
             }
 
-            // 4. BOTTOM LAUNCH BAR
+            // 5. BOTTOM LAUNCH BAR
             if (selectedTab == GameMode.STORY_CAMPAIGN) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .navigationBarsPadding()
-                        .padding(16.dp)
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
                 ) {
                     Button(
                         onClick = { onStartCampaignLevel(currentLevel) },
@@ -323,7 +363,7 @@ fun MainMenuScreen(
                         contentPadding = PaddingValues(),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(54.dp)
+                            .height(52.dp)
                     ) {
                         Box(
                             modifier = Modifier

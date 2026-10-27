@@ -70,11 +70,13 @@ class MainActivity : ComponentActivity() {
                 var canvasHeight by remember { mutableFloatStateOf(1920f) }
                 var frameTick by remember { mutableLongStateOf(0L) }
 
-                // Start Menu Music on startup if enabled
+                // Start Menu Music on startup if enabled & silently check for updates
                 LaunchedEffect(Unit) {
                     if (progressManager.isMusicEnabled()) {
                         soundSynthesizer.startMenuMusic()
                     }
+                    // Auto-check GitHub Releases on startup and trigger update dialog if available
+                    updateManager.checkForUpdatesSilent()
                 }
 
                 // Main Gameplay Physics Loop (100% crash-proof with error guard)
@@ -156,6 +158,7 @@ class MainActivity : ComponentActivity() {
                             if (gameState == GameState.MISSION_BRIEFING) {
                                 MissionBriefingDialog(
                                     wave = engine.currentWave.value,
+                                    progressManager = progressManager,
                                     onStart = { engine.startWaveAction() }
                                 )
                             }

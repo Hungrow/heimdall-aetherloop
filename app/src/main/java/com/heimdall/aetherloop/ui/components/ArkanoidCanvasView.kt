@@ -603,6 +603,18 @@ private fun DrawScope.drawAsgardianPaddle(
     val w = paddle.width
     val h = paddle.height
 
+    // Dynamic Stern Hydrodynamic Wake
+    val wakeOffset = (paddle.velocityX * 0.04f).coerceIn(-28f, 28f)
+    drawOval(
+        brush = Brush.radialGradient(
+            colors = listOf(Color(0x7700E5FF), Color(0x3300B0FF), Color.Transparent),
+            center = Offset(paddle.centerX - wakeOffset * 0.5f, top + h + 6f),
+            radius = w * 0.55f
+        ),
+        topLeft = Offset(left - 12f, top + h * 0.65f),
+        size = Size(w + 24f, 20f)
+    )
+
     // Water Foam Wake
     drawCircle(
         color = Color(0x4400E5FF),

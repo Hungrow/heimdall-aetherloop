@@ -61,6 +61,11 @@ class VikingArkanoidEngine(
 
     val jarlCheerAnim = mutableFloatStateOf(0f)
 
+    // Dynamic Combat Combos & Streak Multiplier
+    val comboStreak = mutableIntStateOf(0)
+    var comboTimer = 0f
+    val comboMultiplier: Int get() = (1 + comboStreak.intValue / 2).coerceIn(1, 8)
+
     private val _gameState = MutableStateFlow(GameState.MISSION_BRIEFING)
     val gameState: StateFlow<GameState> = _gameState.asStateFlow()
 
@@ -116,6 +121,9 @@ class VikingArkanoidEngine(
         earnedStars.intValue = 0
         isNewHighScore.value = false
         jarlCheerAnim.floatValue = 0f
+        comboStreak.intValue = 0
+        comboTimer = 0f
+        paddle.velocityX = 0f
 
         paddle.tier = 2 // Start at standard Guardian Drakkar
         paddle.applyTierDimensions()
@@ -241,6 +249,7 @@ class VikingArkanoidEngine(
         val newX = paddle.centerX + effectiveDelta * speedFactor
         val halfW = paddle.width / 2f
         paddle.centerX = newX.coerceIn(halfW, screenWidth - halfW)
+        paddle.velocityX = (effectiveDelta * 55f).coerceIn(-1200f, 1200f)
 
         if (isBallAttached.value && activeBalls.isNotEmpty()) {
             val ball = activeBalls.first()
@@ -403,8 +412,21 @@ class VikingArkanoidEngine(
     }
 
     private fun handleShipDestroyed(ship: EnemyShip) {
-        score.intValue += ship.type.scoreValue
+        val mult = comboMultiplier
+        val earned = ship.type.scoreValue * mult
+        score.intValue += earned
         jarlCheerAnim.floatValue = 1.0f
+
+        if (mult > 1) {
+            collisionEngine.floatingTexts.add(
+                FloatingText(
+                    x = ship.x,
+                    y = ship.y - 18f,
+                    text = "+$earned (x$mult)",
+                    color = Color(0xFFFFD700)
+                )
+            )
+        }
 
         val dropType = ship.powerUpType ?: if (Random.nextFloat() < 0.32f) {
             val beneficial = listOf(
@@ -607,6 +629,14 @@ class VikingArkanoidEngine(
 
         paddle.y = height * 0.86f
         paddle.updateTimers(dt)
+        paddle.velocityX *= (1f - (dt * 5.5f)).coerceIn(0f, 1f)
+
+        if (comboTimer > 0f) {
+            comboTimer = (comboTimer - dt).coerceAtLeast(0f)
+            if (comboTimer <= 0f) {
+                comboStreak.intValue = 0
+            }
+        }
 
         if (frostNovaTimer > 0f) {
             frostNovaTimer = (frostNovaTimer - dt).coerceAtLeast(0f)
@@ -868,7 +898,28 @@ class VikingArkanoidEngine(
                 ball = ball,
                 ships = enemyShips,
                 onShipDestroyed = { handleShipDestroyed(it) },
-                onBoardingSpawn = { launchVikingBoardingParty(it) }
+                onBoardingSpawn = { launchVikingBoardingParty(it) },
+                onShipHit = { hitShip, _ ->
+                    comboStreak.intValue++
+                    comboTimer = 3.6f
+                    val streak = comboStreak.intValue
+                    if (streak in listOf(2, 3, 5, 8, 12, 20)) {
+                        val banner = when {
+                            streak >= 12 -> "⚡ ¡VALHALLA ASCENDANT! x$comboMultiplier ⚡"
+                            streak >= 5 -> "🔥 ¡FURIA VIKINGA! x$comboMultiplier 🔥"
+                            streak >= 3 -> "⚔️ ¡RACHA DE ATAQUE! x$comboMultiplier ⚔️"
+                            else -> "🎯 ¡GOLPE PRECISO! x2 🎯"
+                        }
+                        collisionEngine.floatingTexts.add(
+                            FloatingText(
+                                x = hitShip.x,
+                                y = hitShip.y - 30f,
+                                text = banner,
+                                color = Color(0xFFFFD700)
+                            )
+                        )
+                    }
+                }
             )
 
             // Bottom Death Plane
@@ -880,6 +931,8 @@ class VikingArkanoidEngine(
         // Check if all balls lost
         if (activeBalls.isEmpty()) {
             lives.intValue--
+            comboStreak.intValue = 0
+            comboTimer = 0f
             soundSynthesizer.playBallLost()
             hapticManager.onRealmComplete()
 

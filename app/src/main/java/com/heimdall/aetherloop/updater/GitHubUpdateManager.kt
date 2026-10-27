@@ -74,6 +74,35 @@ class GitHubUpdateManager(private val context: Context) {
     }
 
     /**
+     * Automatically checks for updates on startup without showing error dialogs if offline.
+     * If an update is available, sets state to Available so user can immediately update.
+     */
+    suspend fun checkForUpdatesSilent(currentVersion: String = HeimdallEcosystem.VERSION_NAME) {
+        withContext(Dispatchers.IO) {
+            try {
+                val request = Request.Builder()
+                    .url(HeimdallEcosystem.GITHUB_API_URL)
+                    .header("Accept", "application/vnd.github.v3+json")
+                    .header("User-Agent", "Heimdall-AetherLoop-Updater")
+                    .build()
+
+                val response = client.newCall(request).execute()
+                if (response.isSuccessful) {
+                    val bodyString = response.body?.string() ?: ""
+                    val json = JSONObject(bodyString)
+                    val release = GitHubRelease.fromJson(json)
+
+                    if (release.isNewerThan(currentVersion) && release.apkDownloadUrl != null) {
+                        _updateState.value = UpdateState.Available(release)
+                    }
+                }
+            } catch (_: Throwable) {
+                // Silent check ignores offline or transient errors
+            }
+        }
+    }
+
+    /**
      * Downloads the APK file from GitHub release assets with real-time progress.
      */
     suspend fun downloadUpdate(release: GitHubRelease) {
