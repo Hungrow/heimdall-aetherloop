@@ -30,6 +30,9 @@ class CollisionEngine(
 ) {
     val splinters = mutableListOf<SplinterParticle>()
     val floatingTexts = mutableListOf<FloatingText>()
+    val waterRipples = mutableListOf<WaterRipple>()
+
+    var screenShakeAmount: Float = 0f
 
     /**
      * Resolves ball vs paddle collision with angle-directed deflection.
@@ -57,6 +60,11 @@ class CollisionEngine(
             ball.vy = -(currentSpeed * cos(bounceAngle)).toFloat()
             ball.y = paddle.top - ball.radius - 1f
 
+            // Add water ripple around paddle hit
+            waterRipples.add(
+                WaterRipple(x = ball.x, y = paddle.top, color = Color(0xFF00E5FF))
+            )
+
             soundSynthesizer.playPaddleHit()
             hapticManager.onParticleCaptured()
 
@@ -71,12 +79,13 @@ class CollisionEngine(
     fun checkBallShipCollisions(
         ball: Ball,
         ships: MutableList<EnemyShip>,
-        onShipDestroyed: (EnemyShip) -> Unit
+        onShipDestroyed: (EnemyShip) -> Unit,
+        onBoardingSpawn: ((EnemyShip) -> Unit)? = null
     ) {
         val iterator = ships.iterator()
         while (iterator.hasNext()) {
             val ship = iterator.next()
-            if (ship.isDestroyed) continue
+            if (ship.isDestroyed || ship.isSinking) continue
 
             val closestX = ball.x.coerceIn(ship.left, ship.right)
             val closestY = ball.y.coerceIn(ship.top, ship.bottom)
@@ -90,7 +99,6 @@ class CollisionEngine(
                 val isPiercing = ball.type.isPiercing
 
                 if (!isPiercing) {
-                    // Rebound ball: determine horizontal vs vertical bounce
                     val overlapX = (ball.radius + ship.width / 2f) - abs(ball.x - ship.x)
                     val overlapY = (ball.radius + ship.height / 2f) - abs(ball.y - ship.y)
 
@@ -102,23 +110,25 @@ class CollisionEngine(
                 }
 
                 // Apply damage
-                val sank = ship.hit(if (isPiercing) 2 else 1)
+                val damage = if (isPiercing) 2 else 1
+                val sank = ship.hit(damage)
 
                 // Spawn wood splinters
                 val particleColor = ship.type.primaryColor
-                for (i in 0 until (if (sank) 12 else 4)) {
+                for (i in 0 until (if (sank) 14 else 5)) {
                     splinters.add(
                         SplinterParticle(
                             x = closestX,
                             y = closestY,
-                            vx = (Random.nextFloat() - 0.5f) * 280f,
-                            vy = (Random.nextFloat() - 0.5f) * 280f,
+                            vx = (Random.nextFloat() - 0.5f) * 320f,
+                            vy = (Random.nextFloat() - 0.5f) * 320f,
                             color = if (Random.nextBoolean()) Color(0xFF8D6E63) else particleColor
                         )
                     )
                 }
 
                 if (sank) {
+                    screenShakeAmount = if (ship.type == ShipType.NAGLFAR_BOSS) 20f else 8f
                     soundSynthesizer.playShipExplosion()
                     hapticManager.onVesselFilled()
                     floatingTexts.add(
@@ -129,11 +139,18 @@ class CollisionEngine(
                             color = ship.type.primaryColor
                         )
                     )
-                    iterator.remove()
+                    waterRipples.add(
+                        WaterRipple(x = ship.x, y = ship.y + 10f, maxRadius = 60f, color = ship.type.primaryColor)
+                    )
                     onShipDestroyed(ship)
                 } else {
                     soundSynthesizer.playShipHit()
                     hapticManager.onParticleCaptured()
+
+                    // 35% chance to trigger Viking Einherjar warrior boarding strike!
+                    if (Random.nextFloat() < 0.35f) {
+                        onBoardingSpawn?.invoke(ship)
+                    }
                 }
 
                 if (!isPiercing) break
@@ -157,22 +174,25 @@ class CollisionEngine(
             val shipIter = ships.iterator()
             while (shipIter.hasNext()) {
                 val ship = shipIter.next()
+                if (ship.isDestroyed || ship.isSinking) continue
+
                 if (proj.x in ship.left..ship.right && proj.y in ship.top..ship.bottom) {
                     val sank = ship.hit(proj.damage)
 
-                    for (i in 0 until 4) {
+                    for (i in 0 until 5) {
                         splinters.add(
                             SplinterParticle(
                                 x = proj.x,
                                 y = proj.y,
-                                vx = (Random.nextFloat() - 0.5f) * 200f,
-                                vy = (Random.nextFloat() - 0.5f) * 200f,
+                                vx = (Random.nextFloat() - 0.5f) * 220f,
+                                vy = (Random.nextFloat() - 0.5f) * 220f,
                                 color = Color(0xFFD500F9)
                             )
                         )
                     }
 
                     if (sank) {
+                        screenShakeAmount = 7f
                         soundSynthesizer.playShipExplosion()
                         hapticManager.onVesselFilled()
                         floatingTexts.add(
@@ -183,7 +203,9 @@ class CollisionEngine(
                                 color = ship.type.primaryColor
                             )
                         )
-                        shipIter.remove()
+                        waterRipples.add(
+                            WaterRipple(x = ship.x, y = ship.y, maxRadius = 45f, color = Color(0xFFD500F9))
+                        )
                         onShipDestroyed(ship)
                     } else {
                         soundSynthesizer.playShipHit()
@@ -222,6 +244,9 @@ class CollisionEngine(
                         color = p.type.color
                     )
                 )
+                waterRipples.add(
+                    WaterRipple(x = paddle.centerX, y = paddle.top, maxRadius = 40f, color = p.type.color)
+                )
                 onPowerUpCollected(p.type)
                 iter.remove()
             }
@@ -229,6 +254,12 @@ class CollisionEngine(
     }
 
     fun updateSplintersAndTexts(dt: Float) {
+        // Decay screen shake
+        if (screenShakeAmount > 0f) {
+            screenShakeAmount = (screenShakeAmount - dt * 25f).coerceAtLeast(0f)
+        }
+
+        // Splinter physics
         val sIter = splinters.iterator()
         while (sIter.hasNext()) {
             val s = sIter.next()
@@ -240,6 +271,7 @@ class CollisionEngine(
             if (s.life <= 0f) sIter.remove()
         }
 
+        // Floating texts
         val tIter = floatingTexts.iterator()
         while (tIter.hasNext()) {
             val t = tIter.next()
@@ -247,6 +279,17 @@ class CollisionEngine(
             t.life -= dt
             t.alpha = (t.life / 0.8f).coerceIn(0f, 1f)
             if (t.life <= 0f) tIter.remove()
+        }
+
+        // Water ripples
+        val rIter = waterRipples.iterator()
+        while (rIter.hasNext()) {
+            val r = rIter.next()
+            r.radius += (r.maxRadius - r.radius) * 8f * dt
+            r.alpha = (r.alpha - dt * 1.5f).coerceAtLeast(0f)
+            if (r.alpha <= 0.02f || r.radius >= r.maxRadius * 0.98f) {
+                rIter.remove()
+            }
         }
     }
 }

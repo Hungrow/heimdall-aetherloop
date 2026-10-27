@@ -100,6 +100,10 @@ fun MissionBriefingDialog(
                     )
                     InstructionRow(
                         num = "4",
+                        text = "¡Abordaje Vikingo! Guerreros Einherjar saltan al asalto de las cubiertas enemigas."
+                    )
+                    InstructionRow(
+                        num = "5",
                         text = "¡Evita que las esferas caigan al abismo! Cuentas con 3 vidas de Valquiria."
                     )
                 }

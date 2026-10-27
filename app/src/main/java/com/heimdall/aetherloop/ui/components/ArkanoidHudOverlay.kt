@@ -73,7 +73,7 @@ fun ArkanoidHudOverlay(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "• OLEADA ${wave.waveNumber}",
+                        text = "• OLEADA ${wave.waveNumber}: ${engine.battleMap.value.runeSymbol} ${engine.battleMap.value.realmName.uppercase()}",
                         color = BifrostCyan,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
