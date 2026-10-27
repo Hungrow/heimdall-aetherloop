@@ -1,9 +1,11 @@
 package com.heimdall.aetherloop.game.engine
 
+import android.graphics.PointF
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.geometry.Offset
 import com.heimdall.aetherloop.core.HapticManager
 import com.heimdall.aetherloop.core.PlayerProgressManager
 import com.heimdall.aetherloop.core.SoundSynthesizer
@@ -14,9 +16,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.math.hypot
 
 enum class GameState {
-    READY,
+    MISSION_BRIEFING,
     PLAYING,
     REALM_STABILIZED,
     VOID_OVERLOAD,
@@ -26,8 +29,8 @@ enum class GameState {
 /**
  * Master Game Loop Engine for AetherLoop.
  *
- * Coordinates track mathematics, SandArt deconstruction, granular particle physics,
- * relic powers, combos, and persistent progression.
+ * Coordinates track mathematics, continuous sand cascades, Shield health,
+ * vessel queues, and interactive boost/tap mechanics.
  */
 class GameLoopEngine(
     val soundSynthesizer: SoundSynthesizer,
@@ -42,11 +45,11 @@ class GameLoopEngine(
     )
 
     private val vesselIdGenerator = AtomicLong(1L)
+    private val tempPoint = PointF()
 
     var currentLevel: RealmLevel = RealmLevel.ALL_LEVELS.first()
         private set
 
-    // Compose Reactive Collections for instant UI updates
     val activeVessels = mutableStateListOf<Vessel>()
     val conduits = mutableStateListOf<Conduit>()
     val vesselQueue = mutableStateListOf<AetherColor>()
@@ -54,6 +57,9 @@ class GameLoopEngine(
     val heldVesselColor = mutableStateOf<AetherColor?>(null)
     val isWarpSpeed = mutableStateOf(false)
     val clearedProgress = mutableFloatStateOf(0f)
+
+    // Shield Health (100% -> 0% Defeat)
+    val shieldHealth = mutableFloatStateOf(100f)
 
     // Score, Combos, and Stars
     val currentScore = mutableIntStateOf(0)
@@ -64,15 +70,15 @@ class GameLoopEngine(
     val isNewHighScore = mutableStateOf(false)
 
     // Relic Powers: Chrono Stasis & Gjallarhorn
-    val chronoCharge = mutableFloatStateOf(0f) // 0.0 to 1.0
+    val chronoCharge = mutableFloatStateOf(0f)
     val isChronoActive = mutableStateOf(false)
     private var chronoTimer = 0f
 
-    val gjallarhornCharge = mutableFloatStateOf(0f) // 0.0 to 1.0
+    val gjallarhornCharge = mutableFloatStateOf(0f)
     val isGjallarhornActive = mutableStateOf(false)
     private var gjallarhornTimer = 0f
 
-    private val _gameState = MutableStateFlow(GameState.READY)
+    private val _gameState = MutableStateFlow(GameState.MISSION_BRIEFING)
     val gameState: StateFlow<GameState> = _gameState.asStateFlow()
 
     private val _levelIndex = MutableStateFlow(0)
@@ -83,15 +89,30 @@ class GameLoopEngine(
             currentScore.intValue += 250 * comboMultiplier.intValue
             progressManager.addHarvestedAether(vessel.capacity)
             chargeRelicPowers(25)
+
+            // Reward shield recovery on vessel completion!
+            shieldHealth.floatValue = (shieldHealth.floatValue + 8f).coerceAtMost(100f)
         }
 
         particleEngine.onParticleCaptured = { points ->
             currentScore.intValue += points
-            comboDecayTimer = 2.2f // reset combo timer
+            comboDecayTimer = 2.4f
             if (comboMultiplier.intValue < 5) {
                 comboMultiplier.intValue++
             }
             chargeRelicPowers(1)
+        }
+
+        particleEngine.onParticleSpilledToVoid = {
+            if (_gameState.value == GameState.PLAYING) {
+                // Spilled aether damages the Heimdall Shield!
+                shieldHealth.floatValue = (shieldHealth.floatValue - 0.65f).coerceAtLeast(0f)
+                if (shieldHealth.floatValue <= 0f) {
+                    _gameState.value = GameState.VOID_OVERLOAD
+                    soundSynthesizer.playVesselFull()
+                    hapticManager.onRealmComplete()
+                }
+            }
         }
 
         particleEngine.onArtworkCleared = {
@@ -111,9 +132,10 @@ class GameLoopEngine(
         gjallarhornCharge.floatValue = (gjallarhornCharge.floatValue + hornStep).coerceAtMost(1.0f)
     }
 
-    /**
-     * Activates Chrono Stasis (Time Dilation).
-     */
+    fun startLevelAction() {
+        _gameState.value = GameState.PLAYING
+    }
+
     fun activateChronoStasis(): Boolean {
         if (chronoCharge.floatValue >= 1.0f && !isChronoActive.value) {
             isChronoActive.value = true
@@ -126,9 +148,6 @@ class GameLoopEngine(
         return false
     }
 
-    /**
-     * Activates Gjallarhorn Magnetic Surge.
-     */
     fun activateGjallarhorn(): Boolean {
         if (gjallarhornCharge.floatValue >= 1.0f && !isGjallarhornActive.value) {
             isGjallarhornActive.value = true
@@ -143,7 +162,7 @@ class GameLoopEngine(
     }
 
     /**
-     * Initializes a realm level.
+     * Initializes a realm level. Starts with EMPTY track so player is required to play!
      */
     fun loadLevel(index: Int) {
         val safeIndex = index.coerceIn(0, RealmLevel.ALL_LEVELS.lastIndex)
@@ -159,10 +178,11 @@ class GameLoopEngine(
         comboMultiplier.intValue = 1
         comboDecayTimer = 0f
         clearedProgress.floatValue = 0f
+        shieldHealth.floatValue = 100f
         earnedStars.intValue = 0
         isNewHighScore.value = false
 
-        // Load Pattern
+        // Load Sand Pattern
         sandMatrix.loadPattern(safeIndex)
 
         // Build Conduits
@@ -194,29 +214,7 @@ class GameLoopEngine(
             vesselQueue.addAll(currentLevel.availableVesselQueue)
         }
 
-        // Pre-spawn 2 initial vessels on track
-        if (vesselQueue.isNotEmpty()) {
-            activeVessels.add(
-                Vessel(
-                    id = vesselIdGenerator.incrementAndGet(),
-                    color = vesselQueue.removeAt(0),
-                    trackProgress = 0.05f,
-                    capacity = 30
-                )
-            )
-        }
-        if (vesselQueue.isNotEmpty()) {
-            activeVessels.add(
-                Vessel(
-                    id = vesselIdGenerator.incrementAndGet(),
-                    color = vesselQueue.removeAt(0),
-                    trackProgress = 0.58f,
-                    capacity = 30
-                )
-            )
-        }
-
-        _gameState.value = GameState.PLAYING
+        _gameState.value = GameState.MISSION_BRIEFING
     }
 
     fun restartCurrentLevel() {
@@ -229,6 +227,32 @@ class GameLoopEngine(
         } else {
             loadLevel(0)
         }
+    }
+
+    /**
+     * Handles tap on screen:
+     * - If tap was on an active vessel, grants Overdrive Rocket Boost (2x speed)!
+     * - Otherwise dispatches the next vessel from the queue onto the conveyor!
+     */
+    fun handleScreenTap(offset: Offset) {
+        if (_gameState.value != GameState.PLAYING) return
+
+        // 1. Check if tap hit any vessel on track
+        for (vessel in activeVessels) {
+            if (vessel.state == VesselState.ON_TRACK) {
+                track.getPointAtProgress(vessel.trackProgress, tempPoint)
+                val dist = hypot(tempPoint.x - offset.x, tempPoint.y - offset.y)
+                if (dist < 65f) {
+                    vessel.applyOverdriveBoost()
+                    soundSynthesizer.playLaunchWhoosh()
+                    hapticManager.onParticleCaptured()
+                    return
+                }
+            }
+        }
+
+        // 2. Otherwise dispatch next vessel
+        dispatchNextVessel()
     }
 
     fun dispatchNextVessel(): Boolean {
@@ -251,7 +275,7 @@ class GameLoopEngine(
             id = vesselIdGenerator.incrementAndGet(),
             color = color,
             trackProgress = spawnProgress,
-            capacity = 30
+            capacity = 26
         )
         activeVessels.add(newVessel)
         soundSynthesizer.playLaunchWhoosh()
@@ -279,12 +303,11 @@ class GameLoopEngine(
         soundSynthesizer.playRealmVictory()
         hapticManager.onRealmComplete()
 
-        // Calculate Stars
         val score = currentScore.intValue
         val target = currentLevel.targetScore
         val stars = when {
-            score >= target -> 3
-            score >= (target * 0.7f).toInt() -> 2
+            score >= target && shieldHealth.floatValue >= 70f -> 3
+            score >= (target * 0.6f).toInt() -> 2
             else -> 1
         }
         earnedStars.intValue = stars
@@ -293,7 +316,6 @@ class GameLoopEngine(
         isNewHighScore.value = isHigh
         progressManager.setRealmStars(_levelIndex.value, stars)
 
-        // Unlock next realm
         if (_levelIndex.value + 1 > progressManager.highestUnlockedRealm) {
             progressManager.highestUnlockedRealm = _levelIndex.value + 1
         }
@@ -304,7 +326,6 @@ class GameLoopEngine(
 
         track.updateDimensions(width, height)
 
-        // Update Relic Timers
         if (isChronoActive.value) {
             chronoTimer -= dt
             if (chronoTimer <= 0f) {
@@ -321,7 +342,6 @@ class GameLoopEngine(
             }
         }
 
-        // Combo decay
         if (comboMultiplier.intValue > 1) {
             comboDecayTimer -= dt
             if (comboDecayTimer <= 0f) {
@@ -330,21 +350,30 @@ class GameLoopEngine(
             }
         }
 
-        val speedMult = when {
+        val baseMult = when {
             isChronoActive.value -> 0.45f
             isWarpSpeed.value -> 1.65f
             else -> 1.0f
         }
-        val effectiveSpeed = currentLevel.baseTrackSpeed * speedMult
+        val effectiveBaseSpeed = currentLevel.baseTrackSpeed * baseMult
 
-        track.beltScrollOffset = (track.beltScrollOffset + effectiveSpeed * dt * 6f) % 1.0f
+        track.beltScrollOffset = (track.beltScrollOffset + effectiveBaseSpeed * dt * 6f) % 1.0f
 
-        // 1. Move Vessels
+        // Move Vessels with individual Overdrive Boost support
         val iterator = activeVessels.iterator()
         while (iterator.hasNext()) {
             val vessel = iterator.next()
 
-            vessel.trackProgress = (vessel.trackProgress + effectiveSpeed * dt) % 1.0f
+            var vesselSpeed = effectiveBaseSpeed
+            if (vessel.isBoosted) {
+                vesselSpeed *= 2.1f
+                vessel.boostTimer -= dt
+                if (vessel.boostTimer <= 0f) {
+                    vessel.isBoosted = false
+                }
+            }
+
+            vessel.trackProgress = (vessel.trackProgress + vesselSpeed * dt) % 1.0f
             vessel.liquidWaveOffset += dt * 6f
 
             if (vessel.fullFlashAnim > 0f) {
@@ -365,7 +394,7 @@ class GameLoopEngine(
             }
         }
 
-        // 2. Physics & Particle Simulation
+        // Physics & Particle Simulation
         particleEngine.update(
             dt = dt,
             width = width,
@@ -374,7 +403,7 @@ class GameLoopEngine(
             conduits = conduits,
             vessels = activeVessels,
             track = track,
-            flowRatePerSec = currentLevel.flowRatePerSec * 2.5f,
+            flowRatePerSec = currentLevel.flowRatePerSec * 1.5f,
             comboMultiplier = comboMultiplier.intValue
         )
 

@@ -39,28 +39,33 @@ import kotlin.math.sin
 fun GameCanvasView(
     engine: GameLoopEngine,
     frameTick: Long,
-    onTapScreen: () -> Unit,
+    onTapScreen: (Offset) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Canvas(
         modifier = modifier
             .fillMaxSize()
             .pointerInput(Unit) {
-                detectTapGestures {
-                    onTapScreen()
+                detectTapGestures { offset ->
+                    onTapScreen(offset)
                 }
             }
     ) {
-        // Register frameTick state read so Compose redraws every single frame
         val currentTick = frameTick
 
         val w = size.width
         val h = size.height
 
         // 1. Draw Deep Cosmos Background & Parallax Nebulae
-        drawCosmicBackground(w, h, engine.isChronoActive.value, engine.isGjallarhornActive.value)
+        drawCosmicBackground(
+            w = w,
+            h = h,
+            isChronoActive = engine.isChronoActive.value,
+            isGjallarhornActive = engine.isGjallarhornActive.value,
+            shieldHealth = engine.shieldHealth.floatValue
+        )
 
-        // 2. Draw Sand Art Mosaic Matrix (The sacred relic dissolving)
+        // 2. Draw Sand Art Mosaic Matrix
         drawSandArtMatrix(engine.sandMatrix, w, h)
 
         // 3. Draw Laser Targeting Guide Beams from Funnels to Conveyor
@@ -95,7 +100,7 @@ fun GameCanvasView(
             }
         }
 
-        // 7. Draw Splash Sparks (Micro-droplets upon container entry)
+        // 7. Draw Splash Sparks
         val sparks = engine.particleEngine.splashSparks
         for (spark in sparks) {
             drawCircle(
@@ -132,9 +137,11 @@ private fun DrawScope.drawCosmicBackground(
     w: Float,
     h: Float,
     isChronoActive: Boolean,
-    isGjallarhornActive: Boolean
+    isGjallarhornActive: Boolean,
+    shieldHealth: Float
 ) {
     val topColor = when {
+        shieldHealth < 30f -> Color(0xFF260505)
         isChronoActive -> Color(0xFF021B29)
         isGjallarhornActive -> Color(0xFF291B02)
         else -> Color(0xFF04060E)
@@ -149,6 +156,14 @@ private fun DrawScope.drawCosmicBackground(
             )
         )
     )
+
+    // Critical Shield Warning Border (Flashing red if shield < 30%)
+    if (shieldHealth < 30f) {
+        drawRect(
+            color = MuspelCrimson.copy(alpha = 0.25f),
+            style = Stroke(width = 8f)
+        )
+    }
 
     // Starlight nebula
     drawCircle(
@@ -169,7 +184,7 @@ private fun DrawScope.drawLaserGuide(conduit: Conduit, w: Float, h: Float, track
     val endY = trackTop
 
     drawLine(
-        color = if (conduit.isOpen) conduit.color.color.copy(alpha = 0.45f) else Color(0x1AFFFFFF),
+        color = if (conduit.isOpen) conduit.color.color.copy(alpha = 0.50f) else Color(0x1AFFFFFF),
         start = Offset(cx, startY),
         end = Offset(cx, endY),
         strokeWidth = if (conduit.isOpen) 2.5f else 1.2f,
@@ -249,7 +264,6 @@ private fun DrawScope.drawConduitFunnel(conduit: Conduit, w: Float, h: Float) {
         style = Stroke(width = 2f)
     )
 
-    // Nozzle
     drawCircle(
         color = if (conduit.isOpen) conduit.color.color else Color(0xFF334155),
         radius = 8f,
@@ -294,7 +308,7 @@ private fun DrawScope.drawConveyorBelt(track: BifrostTrack, beltOffset: Float) {
         style = Stroke(width = 2.5f)
     )
 
-    // 3. Corner Pulleys / Gears
+    // 3. Corner Pulleys
     val pulleyRadius = 14f
     val corners = listOf(
         Offset(track.left + r, track.top + r),
@@ -337,6 +351,20 @@ private fun DrawScope.drawVessel(
     rotate(degrees = angle, pivot = Offset(tempPoint.x, tempPoint.y)) {
         val left = tempPoint.x - vesselWidth / 2f
         val top = tempPoint.y - vesselHeight / 2f
+
+        // Overdrive Rocket Boost Flame
+        if (vessel.isBoosted) {
+            val flamePath = Path().apply {
+                moveTo(left - 16f, top + vesselHeight * 0.5f)
+                lineTo(left + 2f, top + 4f)
+                lineTo(left + 2f, top + vesselHeight - 4f)
+                close()
+            }
+            drawPath(
+                path = flamePath,
+                brush = Brush.horizontalGradient(listOf(Color.Transparent, BifrostCyan))
+            )
+        }
 
         // Full vessel radiant aura
         if (vessel.fullFlashAnim > 0f) {
@@ -392,11 +420,11 @@ private fun DrawScope.drawVessel(
 
         // Hull Edge Border
         drawRoundRect(
-            color = if (vessel.isFull) HeimdallGold else vessel.color.color,
+            color = if (vessel.isBoosted) BifrostCyan else if (vessel.isFull) HeimdallGold else vessel.color.color,
             topLeft = Offset(left, top),
             size = Size(vesselWidth, vesselHeight),
             cornerRadius = CornerRadius(12f, 12f),
-            style = Stroke(width = if (vessel.isFull) 3.5f else 2.2f)
+            style = Stroke(width = if (vessel.isFull || vessel.isBoosted) 3.5f else 2.2f)
         )
 
         // Wheels

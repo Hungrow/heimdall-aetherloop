@@ -16,11 +16,11 @@ data class FloatingText(
     val text: String,
     val color: androidx.compose.ui.graphics.Color,
     var alpha: Float = 1.0f,
-    var life: Float = 0.8f // seconds
+    var life: Float = 0.8f
 )
 
 /**
- * Splash particle emitted when a sand grain impacts a vessel.
+ * Splash particle emitted when a sand grain impacts a vessel or void.
  */
 data class SplashSpark(
     var x: Float,
@@ -35,16 +35,16 @@ data class SplashSpark(
 /**
  * High-performance Granular Physics and Particle Collision Engine.
  *
- * Couples the deconstruction of the SandArtMatrix with free-falling stardust grains,
- * container absorption, magnetic relic pulls, and juice splash effects.
+ * Implements continuous falling aether streams, container interception,
+ * and void spillage tracking that damages the Heimdall Shield.
  */
 class ParticleEngine(
-    private val pool: ParticlePool = ParticlePool(650),
+    private val pool: ParticlePool = ParticlePool(700),
     private val soundSynthesizer: SoundSynthesizer,
     private val hapticManager: HapticManager
 ) {
     private val tempPoint = PointF()
-    private val baseGravity = 1250f
+    private val baseGravity = 1100f
 
     val activeParticlesCount: Int get() = pool.activeCount
     fun getParticlesArray(): Array<Particle> = pool.getAll()
@@ -55,6 +55,7 @@ class ParticleEngine(
     var onVesselCompleted: ((Vessel) -> Unit)? = null
     var onArtworkCleared: (() -> Unit)? = null
     var onParticleCaptured: ((points: Int) -> Unit)? = null
+    var onParticleSpilledToVoid: (() -> Unit)? = null
 
     var isChronoStasisActive: Boolean = false
     var isGjallarhornActive: Boolean = false
@@ -76,63 +77,50 @@ class ParticleEngine(
         val vesselWidth = width * 0.17f
         val vesselHeight = height * 0.058f
 
-        // 1. Check which conduits have matching vessels directly underneath
+        // 1. Continuous Sand Emission from Funnels
         for (conduit in conduits) {
             val funnelX = conduit.xNorm * width
-            var hasMatchingVessel = false
-            var candidateVessel: Vessel? = null
 
-            for (vessel in vessels) {
-                if (vessel.state == VesselState.ON_TRACK && !vessel.isFull) {
-                    track.getPointAtProgress(vessel.trackProgress, tempPoint)
-                    if (kotlin.math.abs(tempPoint.y - track.top) < 32f) {
-                        val dist = kotlin.math.abs(tempPoint.x - funnelX)
-                        if (dist < (vesselWidth * 0.60f)) {
-                            candidateVessel = vessel
-                            if (vessel.color == conduit.color || isGjallarhornActive) {
-                                hasMatchingVessel = true
-                            }
-                            break
-                        }
-                    }
-                }
+            // Check if ANY matching vessel is under this funnel to light up nozzle
+            conduit.isOpen = vessels.any { v ->
+                if (v.state == VesselState.ON_TRACK && !v.isFull && (v.color == conduit.color || isGjallarhornActive)) {
+                    track.getPointAtProgress(v.trackProgress, tempPoint)
+                    kotlin.math.abs(tempPoint.y - track.top) < 32f &&
+                            kotlin.math.abs(tempPoint.x - funnelX) < (vesselWidth * 0.58f)
+                } else false
             }
 
-            conduit.isOpen = hasMatchingVessel
+            // Grains pour steadily from the relic mosaic!
+            conduit.flowAccumulator += simDt * flowRatePerSec
+            while (conduit.flowAccumulator >= 1.0f) {
+                conduit.flowAccumulator -= 1.0f
 
-            if (hasMatchingVessel && candidateVessel != null) {
-                conduit.flowAccumulator += simDt * flowRatePerSec
-                while (conduit.flowAccumulator >= 1.0f) {
-                    conduit.flowAccumulator -= 1.0f
+                val col = Random.nextInt(conduit.colRangeStart, conduit.colRangeEnd + 1)
+                val drainedColor = sandMatrix.drainGrainAtColumn(col, conduit.color)
 
-                    val col = Random.nextInt(conduit.colRangeStart, conduit.colRangeEnd + 1)
-                    val targetColor = if (isGjallarhornActive) null else conduit.color
-                    val drainedColor = sandMatrix.drainGrainAtColumn(col, targetColor)
+                if (drainedColor != null) {
+                    val particle = pool.obtain()
+                    if (particle != null) {
+                        val startX = funnelX + (Random.nextFloat() - 0.5f) * 16f
+                        val startY = conduit.yNorm * height + 10f
+                        val vx = (Random.nextFloat() - 0.5f) * 20f
+                        val vy = 90f + Random.nextFloat() * 60f
 
-                    if (drainedColor != null) {
-                        val particle = pool.obtain()
-                        if (particle != null) {
-                            val startX = funnelX + (Random.nextFloat() - 0.5f) * 16f
-                            val startY = conduit.yNorm * height + 10f
-                            val vx = (Random.nextFloat() - 0.5f) * 24f
-                            val vy = 110f + Random.nextFloat() * 70f
-
-                            particle.reset(
-                                startX = startX,
-                                startY = startY,
-                                initialVx = vx,
-                                initialVy = vy,
-                                particleColor = drainedColor,
-                                conduitId = conduit.id,
-                                particleRadius = 4.3f
-                            )
-                        }
-                    } else {
-                        if (sandMatrix.remainingGrainCount <= 0) {
-                            onArtworkCleared?.invoke()
-                        }
-                        break
+                        particle.reset(
+                            startX = startX,
+                            startY = startY,
+                            initialVx = vx,
+                            initialVy = vy,
+                            particleColor = drainedColor,
+                            conduitId = conduit.id,
+                            particleRadius = 4.3f
+                        )
                     }
+                } else {
+                    if (sandMatrix.remainingGrainCount <= 0) {
+                        onArtworkCleared?.invoke()
+                    }
+                    break
                 }
             }
         }
@@ -168,7 +156,6 @@ class ParticleEngine(
             val p = particles[i]
             if (!p.isActive) continue
 
-            // If Gjallarhorn is active, attract particles magnetically towards matching vessel
             if (isGjallarhornActive) {
                 val matchingBox = vesselHitboxes.firstOrNull { it.vessel.color == p.color }
                 if (matchingBox != null) {
@@ -203,7 +190,7 @@ class ParticleEngine(
                                     x = p.x,
                                     y = p.y,
                                     vx = (Random.nextFloat() - 0.5f) * 140f,
-                                    vy = -60f - Random.nextFloat() * 100f,
+                                    vy = -60f - Random.nextFloat() * 90f,
                                     color = p.color
                                 )
                             )
@@ -214,29 +201,17 @@ class ParticleEngine(
                             hapticManager.onVesselFilled()
                             onVesselCompleted?.invoke(target)
 
-                            // Floating bonus label
                             floatingTexts.add(
                                 FloatingText(
                                     x = hb.centerX,
-                                    y = hb.centerY - 20f,
-                                    text = "¡SELLADO +${100 * comboMultiplier}!",
+                                    y = hb.centerY - 22f,
+                                    text = "¡SELLADO +${150 * comboMultiplier}!",
                                     color = androidx.compose.ui.graphics.Color(0xFFFFD700)
                                 )
                             )
                         } else if (!wasFull) {
                             soundSynthesizer.playParticleCatch(p.color.id)
                             hapticManager.onParticleCaptured()
-
-                            if (comboMultiplier > 1 && Random.nextFloat() < 0.25f) {
-                                floatingTexts.add(
-                                    FloatingText(
-                                        x = p.x,
-                                        y = p.y - 12f,
-                                        text = "+$earnedPoints (x$comboMultiplier)",
-                                        color = p.color.color
-                                    )
-                                )
-                            }
                         }
 
                         pool.release(p)
@@ -253,9 +228,10 @@ class ParticleEngine(
 
             if (handled) continue
 
-            // Bottom bounds release
+            // Bottom bounds release -> SPILLED TO THE VOID!
             if (p.y > height * 0.85f || p.x < 0 || p.x > width) {
                 pool.release(p)
+                onParticleSpilledToVoid?.invoke()
             }
         }
 

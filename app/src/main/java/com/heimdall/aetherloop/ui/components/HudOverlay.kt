@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.*
@@ -30,10 +31,7 @@ import com.heimdall.aetherloop.game.model.AetherPower
 import com.heimdall.aetherloop.ui.theme.*
 
 /**
- * Modern AetherLoop Glassmorphic HUD.
- *
- * Displays realm objectives, combo counters, relic powers, queue preview,
- * and dispatch triggers.
+ * Modern AetherLoop Glassmorphic HUD with Shield Health and Relic Powers.
  */
 @Composable
 fun HudOverlay(
@@ -43,20 +41,27 @@ fun HudOverlay(
 ) {
     val level = engine.currentLevel
     val clearedPercent = (engine.clearedProgress.floatValue * 100f).toInt()
+    val shieldPercent = engine.shieldHealth.floatValue.toInt()
     val combo = engine.comboMultiplier.intValue
+
+    val shieldColor = when {
+        shieldPercent > 55 -> BifrostCyan
+        shieldPercent > 25 -> HeimdallGold
+        else -> MuspelCrimson
+    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 18.dp),
+            .padding(horizontal = 16.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // TOP STATUS BAR & COMBO
+        // TOP STATUS BAR & SHIELD METER
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
-                .background(CosmosSurface.copy(alpha = 0.90f))
+                .background(CosmosSurface.copy(alpha = 0.92f))
                 .border(1.dp, CosmosBorder, RoundedCornerShape(20.dp))
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -116,7 +121,7 @@ fun HudOverlay(
                             .clip(RoundedCornerShape(10.dp))
                             .background(CosmosCard)
                             .border(1.dp, BifrostCyan.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                            .padding(horizontal = 8.dp, vertical = 5.dp)
                     ) {
                         Text(
                             text = "$clearedPercent% DISUELTO",
@@ -145,16 +150,47 @@ fun HudOverlay(
                 }
             }
 
-            // Linear Progress Bar for Artwork Deconstruction
-            LinearProgressIndicator(
-                progress = { engine.clearedProgress.floatValue },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp)),
-                color = HeimdallGold,
-                trackColor = CosmosCard
-            )
+            // ESCUDO DE ASGARD (SHIELD HEALTH BAR)
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Security,
+                            contentDescription = null,
+                            tint = shieldColor,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "ESCUDO DE ASGARD",
+                            color = shieldColor,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                    }
+                    Text(
+                        text = "$shieldPercent%",
+                        color = shieldColor,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
+
+                LinearProgressIndicator(
+                    progress = { (engine.shieldHealth.floatValue / 100f).coerceIn(0f, 1f) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(7.dp)
+                        .clip(RoundedCornerShape(3.5.dp)),
+                    color = shieldColor,
+                    trackColor = CosmosCard
+                )
+            }
         }
 
         // RELIC POWERS & BOTTOM CONTROLS
@@ -162,7 +198,7 @@ fun HudOverlay(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // RELIC POWERS ROW (Chrono Stasis & Gjallarhorn)
+            // RELIC POWERS ROW
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -170,7 +206,6 @@ fun HudOverlay(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Chrono Stasis Button
                 RelicPowerButton(
                     power = AetherPower.CHRONO_STASIS,
                     chargeProgress = engine.chronoCharge.floatValue,
@@ -181,7 +216,6 @@ fun HudOverlay(
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                // Gjallarhorn Surge Button
                 RelicPowerButton(
                     power = AetherPower.GJALLARHORN_SURGE,
                     chargeProgress = engine.gjallarhornCharge.floatValue,
@@ -199,8 +233,16 @@ fun HudOverlay(
                     .background(CosmosSurface.copy(alpha = 0.94f))
                     .border(1.dp, CosmosBorder, RoundedCornerShape(24.dp))
                     .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                // Interactive Hints
+                Text(
+                    text = "⚡ Toca la pantalla para lanzar vasijas • Toca una vasija para acelerarla",
+                    color = TextMuted,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium
+                )
+
                 // Queue & Tactical Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -215,7 +257,7 @@ fun HudOverlay(
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp
                         )
-                        Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             val previewList = engine.vesselQueue.take(3)
                             for (color in previewList) {
@@ -224,7 +266,7 @@ fun HudOverlay(
                         }
                     }
 
-                    // Tactical Actions: Swap & Warp Speed
+                    // Tactical Actions
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         // Hold Slot
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -266,7 +308,7 @@ fun HudOverlay(
                             )
                         }
 
-                        // Warp Speed
+                        // Warp Speed Toggle
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             val isWarp = engine.isWarpSpeed.value
                             Box(
@@ -317,7 +359,7 @@ fun HudOverlay(
                     onClick = { engine.dispatchNextVessel() },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp)
+                        .height(54.dp)
                         .scale(pulseScale),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
@@ -329,13 +371,13 @@ fun HudOverlay(
                         modifier = Modifier
                             .fillMaxSize()
                             .background(
-                            Brush.horizontalGradient(
-                                colors = listOf(
-                                    nextColor.color,
-                                    nextColor.color.copy(alpha = 0.85f)
+                                Brush.horizontalGradient(
+                                    colors = listOf(
+                                        nextColor.color,
+                                        nextColor.color.copy(alpha = 0.85f)
+                                    )
                                 )
-                            )
-                        ),
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         Row(

@@ -18,11 +18,13 @@ data class Vessel(
     val id: Long,
     val color: AetherColor,
     var trackProgress: Float, // Normalized 0.0 to 1.0 along the track
-    val capacity: Int = 40,
+    val capacity: Int = 26,
     var currentAmount: Int = 0,
     var state: VesselState = VesselState.ON_TRACK,
     var liquidWaveOffset: Float = 0f,
-    var fullFlashAnim: Float = 0f
+    var fullFlashAnim: Float = 0f,
+    var isBoosted: Boolean = false,
+    var boostTimer: Float = 0f
 ) {
     val isFull: Boolean
         get() = currentAmount >= capacity
@@ -43,5 +45,10 @@ data class Vessel(
             }
         }
         return false
+    }
+
+    fun applyOverdriveBoost() {
+        isBoosted = true
+        boostTimer = 1.3f
     }
 }

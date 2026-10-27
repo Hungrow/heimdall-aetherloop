@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import com.heimdall.aetherloop.core.HapticManager
 import com.heimdall.aetherloop.core.PlayerProgressManager
@@ -23,8 +26,8 @@ import kotlinx.coroutines.launch
 /**
  * Main Activity of AetherLoop.
  *
- * Implements a continuous 60 FPS hardware-accelerated game loop with
- * full-screen tap-to-dispatch mechanics, relic powers, and GitHub OTA updates.
+ * Implements true immersive sticky fullscreen (no status or navigation bars),
+ * continuous 60 FPS hardware-accelerated game loop, and reactive HUD.
  */
 class MainActivity : ComponentActivity() {
 
@@ -37,11 +40,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        hideSystemBars()
+
         soundSynthesizer = SoundSynthesizer()
         hapticManager = HapticManager(this)
         progressManager = PlayerProgressManager(this)
 
-        // Apply saved preferences
         soundSynthesizer.isMuted = !progressManager.isSoundEnabled()
         hapticManager.isHapticsEnabled = progressManager.isHapticsEnabled()
 
@@ -57,7 +61,6 @@ class MainActivity : ComponentActivity() {
                 var canvasWidth by remember { mutableFloatStateOf(1080f) }
                 var canvasHeight by remember { mutableFloatStateOf(1920f) }
 
-                // Continuous 60 FPS frame ticker
                 var frameTick by remember { mutableLongStateOf(0L) }
 
                 LaunchedEffect(Unit) {
@@ -82,20 +85,28 @@ class MainActivity : ComponentActivity() {
                             canvasHeight = size.height.toFloat()
                         }
                 ) {
-                    // 1. Core Physics & Graphics Canvas with full-screen tap dispatch
+                    // 1. Core Physics & Graphics Canvas with tap dispatch and vessel boost
                     GameCanvasView(
                         engine = engine,
                         frameTick = frameTick,
-                        onTapScreen = { engine.dispatchNextVessel() }
+                        onTapScreen = { tapOffset -> engine.handleScreenTap(tapOffset) }
                     )
 
-                    // 2. Interactive Glassmorphic HUD with Relic Powers & Combos
+                    // 2. Interactive Glassmorphic HUD with Shield Bar & Relic Powers
                     HudOverlay(
                         engine = engine,
                         onOpenSettings = { showSettings = true }
                     )
 
-                    // 3. Level Complete Modal with Stars & Scores
+                    // 3. Mission Briefing Modal (Displayed at level start explaining the objective)
+                    if (gameState == GameState.MISSION_BRIEFING) {
+                        MissionBriefingDialog(
+                            level = engine.currentLevel,
+                            onStart = { engine.startLevelAction() }
+                        )
+                    }
+
+                    // 4. Level Victory Modal
                     if (gameState == GameState.REALM_STABILIZED) {
                         RealmCompleteDialog(
                             level = engine.currentLevel,
@@ -107,7 +118,15 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // 4. Settings & Level Selector Modal
+                    // 5. Defeat Modal (When Shield Hits 0%)
+                    if (gameState == GameState.VOID_OVERLOAD) {
+                        DefeatDialog(
+                            level = engine.currentLevel,
+                            onRetry = { engine.restartCurrentLevel() }
+                        )
+                    }
+
+                    // 6. Settings & Level Selector Modal
                     if (showSettings) {
                         SettingsDialog(
                             engine = engine,
@@ -120,7 +139,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // 5. In-Device GitHub Releases Updater Modal
+                    // 7. In-Device GitHub Releases Updater Modal
                     UpdateDialog(
                         state = updateState,
                         onDismiss = { updateManager.dismiss() },
@@ -141,5 +160,25 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        hideSystemBars()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            hideSystemBars()
+        }
+    }
+
+    private fun hideSystemBars() {
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+        insetsController.hide(WindowInsetsCompat.Type.systemBars())
+        insetsController.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
 }

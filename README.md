@@ -3,7 +3,7 @@
 > **Videojuego Oficial del Ecosistema Heimdall**  
 > *Resonancia Armónica del Bifröst • Física Granular, Mosaicos de Arena y Puzzles Rítmicos*
 
-[![Versión](https://img.shields.io/badge/version-v1.1.0-00E5FF.svg)](https://github.com/Hungrow/heimdall-aetherloop/releases)
+[![Versión](https://img.shields.io/badge/version-v1.2.0-00E5FF.svg)](https://github.com/Hungrow/heimdall-aetherloop/releases)
 [![Ecosistema](https://img.shields.io/badge/Ecosystem-Heimdall-FFD700.svg)](#ecosistema-heimdall)
 [![Plataforma](https://img.shields.io/badge/Platform-Android%208.0%2B-00E676.svg)](#requisitos-e-instalación)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7F52FF.svg)](https://kotlinlang.org/)
