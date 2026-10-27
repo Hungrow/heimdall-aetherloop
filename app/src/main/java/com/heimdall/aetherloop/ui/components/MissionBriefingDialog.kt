@@ -14,21 +14,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.heimdall.aetherloop.game.model.RealmLevel
+import com.heimdall.aetherloop.game.model.FleetWave
 import com.heimdall.aetherloop.ui.theme.*
 
 /**
- * Mission Briefing Dialog.
- *
- * Explains the core gameplay rules, objectives, and stakes at the start of each level.
+ * Mission Briefing Dialog for Viking Arkanoid Combat.
  */
 @Composable
 fun MissionBriefingDialog(
-    level: RealmLevel,
+    wave: FleetWave,
     onStart: () -> Unit
 ) {
     Dialog(onDismissRequest = onStart) {
@@ -47,7 +44,6 @@ fun MissionBriefingDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Header Icon
                 Box(
                     modifier = Modifier
                         .size(56.dp)
@@ -68,7 +64,7 @@ fun MissionBriefingDialog(
                 }
 
                 Text(
-                    text = "DEFENSA DE ASGARD",
+                    text = "COMBATE NAVAL VIKINGO",
                     color = HeimdallGold,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Black,
@@ -76,13 +72,12 @@ fun MissionBriefingDialog(
                 )
 
                 Text(
-                    text = "${level.realmName.uppercase()} • ${level.subtitle}",
+                    text = "OLEADA ${wave.waveNumber}: ${wave.title.uppercase()}",
                     color = BifrostCyan,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold
                 )
 
-                // Instructions Box
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -93,19 +88,19 @@ fun MissionBriefingDialog(
                 ) {
                     InstructionRow(
                         num = "1",
-                        text = "El éter estelar cae en cascada continua hacia el vacío."
+                        text = "La flota enemiga desciende por las aguas del fiordo protegida por escudos de roble."
                     )
                     InstructionRow(
                         num = "2",
-                        text = "Toca la pantalla para despachar vasijas del color coincidente con cada corriente."
+                        text = "Arrastra tu barco guardián inferior para desviar las esferas de energía y hacer pedazos los barcos."
                     )
                     InstructionRow(
                         num = "3",
-                        text = "Cada grano que cae al vacío daña el Escudo de Asgard. ¡Si llega al 0%, serás derrotado!"
+                        text = "Recoge las runas mágicas que caen (Rayo de Mjölnir, Multibola y Balistas)."
                     )
                     InstructionRow(
                         num = "4",
-                        text = "Llena las vasijas al 100% para disolver el mosaico rúnico y restaurar el escudo."
+                        text = "¡Evita que las esferas caigan al abismo! Cuentas con 3 vidas de Valquiria."
                     )
                 }
 
@@ -120,7 +115,7 @@ fun MissionBriefingDialog(
                     Icon(Icons.Default.PlayArrow, contentDescription = null, tint = CosmosDark)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "¡INICIAR RESONANCIA!",
+                        text = "¡A LA BATALLA NAVAL!",
                         color = CosmosDark,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 14.sp,

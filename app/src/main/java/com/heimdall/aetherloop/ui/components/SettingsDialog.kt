@@ -8,13 +8,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Vibration
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,16 +26,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.heimdall.aetherloop.core.HeimdallEcosystem
-import com.heimdall.aetherloop.game.engine.GameLoopEngine
-import com.heimdall.aetherloop.game.model.RealmLevel
+import com.heimdall.aetherloop.game.engine.VikingArkanoidEngine
+import com.heimdall.aetherloop.game.model.FleetWave
 import com.heimdall.aetherloop.ui.theme.*
 
 /**
- * Settings, Level Selector & Progress Dialog.
+ * Settings & Fleet Wave Selector Dialog.
  */
 @Composable
 fun SettingsDialog(
-    engine: GameLoopEngine,
+    engine: VikingArkanoidEngine,
     onDismiss: () -> Unit,
     onCheckUpdate: () -> Unit
 ) {
@@ -65,7 +65,7 @@ fun SettingsDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Ajustes de AetherLoop",
+                        text = "Ajustes de Batalla",
                         color = TextPrimary,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
@@ -92,7 +92,7 @@ fun SettingsDialog(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, tint = BifrostCyan)
                             Spacer(modifier = Modifier.width(10.dp))
-                            Text("Sonido ASMR Pentatónico", color = TextPrimary, fontSize = 13.sp)
+                            Text("Efectos Acústicos Nórdicos", color = TextPrimary, fontSize = 13.sp)
                         }
                         Switch(
                             checked = soundEnabled,
@@ -135,9 +135,9 @@ fun SettingsDialog(
                     }
                 }
 
-                // Level Selector with Stars & Unlock check
+                // Wave Selector
                 Text(
-                    text = "MAPA DE REINOS Y ESTRELLAS",
+                    text = "MAPA DE OLEADAS Y REINOS",
                     color = TextMuted,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
@@ -147,10 +147,10 @@ fun SettingsDialog(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     val highestUnlocked = engine.progressManager.highestUnlockedRealm
 
-                    for (i in RealmLevel.ALL_LEVELS.indices) {
-                        val level = RealmLevel.ALL_LEVELS[i]
+                    for (i in FleetWave.ALL_WAVES.indices) {
+                        val wave = FleetWave.ALL_WAVES[i]
                         val isUnlocked = i <= highestUnlocked || i == 0
-                        val isCurrent = engine.levelIndex.value == i
+                        val isCurrent = engine.waveIndex.intValue == i
                         val stars = engine.progressManager.getRealmStars(i)
                         val highScore = engine.progressManager.getRealmHighScore(i)
 
@@ -165,7 +165,7 @@ fun SettingsDialog(
                                     RoundedCornerShape(12.dp)
                                 )
                                 .clickable(enabled = isUnlocked) {
-                                    engine.loadLevel(i)
+                                    engine.loadWave(i)
                                     onDismiss()
                                 }
                                 .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -179,7 +179,7 @@ fun SettingsDialog(
                                 }
                                 Column {
                                     Text(
-                                        text = "${i + 1}. ${level.realmName}",
+                                        text = "${i + 1}. ${wave.title}",
                                         color = if (isUnlocked) TextPrimary else TextMuted,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 13.sp
@@ -208,10 +208,10 @@ fun SettingsDialog(
                     }
                 }
 
-                // Restart current level
+                // Restart current wave
                 OutlinedButton(
                     onClick = {
-                        engine.restartCurrentLevel()
+                        engine.restartCurrentWave()
                         onDismiss()
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -219,7 +219,7 @@ fun SettingsDialog(
                 ) {
                     Icon(Icons.Default.Refresh, contentDescription = null, tint = TextSecondary)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Reiniciar Nivel Actual", color = TextSecondary)
+                    Text("Reiniciar Oleada Actual", color = TextSecondary)
                 }
 
                 // In-Device GitHub Update Section
@@ -237,7 +237,7 @@ fun SettingsDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("AetherLoop • Ecosistema Heimdall", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Text("AetherLoop: Viking Combat", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                             Text("Versión instalada: v${HeimdallEcosystem.VERSION_NAME}", color = TextSecondary, fontSize = 11.sp)
                         }
                         IconButton(

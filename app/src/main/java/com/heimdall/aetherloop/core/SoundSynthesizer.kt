@@ -7,7 +7,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.math.PI
 import kotlin.math.exp
 import kotlin.math.sin
@@ -15,9 +14,8 @@ import kotlin.math.sin
 /**
  * Procedural Real-time Sound Synthesizer.
  *
- * Generates ASMR crystalline chimes, resonant energy bells, and cosmic hums
- * completely in code via [AudioTrack]. Eliminates any external asset dependency
- * and ensures 100% offline reliability.
+ * Generates responsive tactile SFX for Arkanoid paddle hits, wooden ship splinters,
+ * thunder strikes, ballista shots, and victory fanfare completely in code via [AudioTrack].
  */
 class SoundSynthesizer {
 
@@ -26,56 +24,107 @@ class SoundSynthesizer {
 
     var isMuted: Boolean = false
 
-    // Celestial Pentatonic Frequencies (Hz) for harmonious ASMR cascades
-    private val pentatonicNotes = doubleArrayOf(
-        523.25, // C5
-        587.33, // D5
-        659.25, // E5
-        783.99, // G5
-        880.00, // A5
-        1046.50 // C6
-    )
-
-    private var noteCursor = 0
-
     /**
-     * Plays a crystalline chime when a particle is captured.
-     * Sequenced along a pentatonic scale so rapid cascades sound like a soothing harp.
+     * Resonant clank when the rune sphere bounces off the player's shield paddle.
      */
-    fun playParticleCatch(colorIndex: Int) {
+    fun playPaddleHit() {
         if (isMuted) return
         scope.launch {
-            val freq = pentatonicNotes[(colorIndex + noteCursor++) % pentatonicNotes.size]
-            val durationMs = 90
-            playTone(frequency = freq, durationMs = durationMs, volume = 0.28f, decaySpeed = 35.0)
+            playTone(frequency = 587.33, durationMs = 70, volume = 0.35f, decaySpeed = 45.0)
         }
     }
 
     /**
-     * Plays a rich resonant bell when a pod is completely filled (100% capacity).
+     * Wooden crunch when the ball strikes an enemy Viking longship.
      */
-    fun playVesselFull() {
+    fun playShipHit() {
         if (isMuted) return
         scope.launch {
-            // Dual-frequency bell with harmonic shimmer
-            val fundamental = 880.0
-            val harmonic = 1320.0
-            val numSamples = (sampleRate * 0.45).toInt()
+            val numSamples = (sampleRate * 0.08).toInt()
             val buffer = ShortArray(numSamples)
             for (i in 0 until numSamples) {
                 val t = i.toDouble() / sampleRate
-                val envelope = exp(-8.0 * t)
-                val sample1 = sin(2.0 * PI * fundamental * t)
-                val sample2 = 0.5 * sin(2.0 * PI * harmonic * t)
-                val combined = (sample1 + sample2) * envelope * 0.4 * Short.MAX_VALUE
-                buffer[i] = combined.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+                val freq = 220.0 - (100.0 * (t / 0.08))
+                val envelope = exp(-35.0 * t)
+                val noise = (Math.random() - 0.5) * 0.3
+                val sample = (sin(2.0 * PI * freq * t) + noise) * envelope * 0.4 * Short.MAX_VALUE
+                buffer[i] = sample.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
             }
             playRawBuffer(buffer)
         }
     }
 
     /**
-     * Plays a triumphant realm completion fanfare chord.
+     * Deep explosion rumble when an enemy longship is destroyed.
+     */
+    fun playShipExplosion() {
+        if (isMuted) return
+        scope.launch {
+            val numSamples = (sampleRate * 0.22).toInt()
+            val buffer = ShortArray(numSamples)
+            for (i in 0 until numSamples) {
+                val t = i.toDouble() / sampleRate
+                val envelope = exp(-12.0 * t)
+                val noise = (Math.random() - 0.5) * 0.8
+                val lowFreq = sin(2.0 * PI * 80.0 * t)
+                val sample = (lowFreq + noise) * envelope * 0.45 * Short.MAX_VALUE
+                buffer[i] = sample.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+            }
+            playRawBuffer(buffer)
+        }
+    }
+
+    /**
+     * Laser ballista shot fired from paddle.
+     */
+    fun playLaserShot() {
+        if (isMuted) return
+        scope.launch {
+            val numSamples = (sampleRate * 0.09).toInt()
+            val buffer = ShortArray(numSamples)
+            for (i in 0 until numSamples) {
+                val t = i.toDouble() / sampleRate
+                val freq = 1100.0 - (800.0 * (t / 0.09))
+                val envelope = exp(-28.0 * t)
+                val sample = sin(2.0 * PI * freq * t) * envelope * 0.3 * Short.MAX_VALUE
+                buffer[i] = sample.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+            }
+            playRawBuffer(buffer)
+        }
+    }
+
+    /**
+     * Chime when catching a power-up rune.
+     */
+    fun playPowerUpCatch() {
+        if (isMuted) return
+        scope.launch {
+            playTone(frequency = 880.0, durationMs = 60, volume = 0.3f, decaySpeed = 25.0)
+            playTone(frequency = 1174.66, durationMs = 90, volume = 0.35f, decaySpeed = 20.0)
+        }
+    }
+
+    /**
+     * Tone when a ball is lost past the bottom line.
+     */
+    fun playBallLost() {
+        if (isMuted) return
+        scope.launch {
+            val numSamples = (sampleRate * 0.25).toInt()
+            val buffer = ShortArray(numSamples)
+            for (i in 0 until numSamples) {
+                val t = i.toDouble() / sampleRate
+                val freq = 350.0 - (180.0 * (t / 0.25))
+                val envelope = exp(-10.0 * t)
+                val sample = sin(2.0 * PI * freq * t) * envelope * 0.35 * Short.MAX_VALUE
+                buffer[i] = sample.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+            }
+            playRawBuffer(buffer)
+        }
+    }
+
+    /**
+     * Fanfare on fleet victory.
      */
     fun playRealmVictory() {
         if (isMuted) return
@@ -97,24 +146,18 @@ class SoundSynthesizer {
         }
     }
 
-    /**
-     * Plays a subtle whoosh/pulse on launching a new vessel.
-     */
     fun playLaunchWhoosh() {
         if (isMuted) return
         scope.launch {
-            val numSamples = (sampleRate * 0.15).toInt()
-            val buffer = ShortArray(numSamples)
-            for (i in 0 until numSamples) {
-                val t = i.toDouble() / sampleRate
-                val freq = 220.0 + (300.0 * (1.0 - (t / 0.15)))
-                val envelope = sin(PI * (t / 0.15))
-                val sample = sin(2.0 * PI * freq * t) * envelope * 0.3 * Short.MAX_VALUE
-                buffer[i] = sample.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
-            }
-            playRawBuffer(buffer)
+            playTone(frequency = 440.0, durationMs = 100, volume = 0.3f, decaySpeed = 30.0)
         }
     }
+
+    // Backward compatibility bridges
+    fun playVesselFull() { playPowerUpCatch() }
+    fun playParticleCatch(noteIndex: Int = 0) { playPaddleHit() }
+    fun playVesselLaunch() { playLaunchWhoosh() }
+    fun playStarEarned() { playRealmVictory() }
 
     private fun playTone(frequency: Double, durationMs: Int, volume: Float, decaySpeed: Double) {
         val numSamples = (sampleRate * (durationMs / 1000.0)).toInt()
@@ -160,8 +203,6 @@ class SoundSynthesizer {
                 }
                 override fun onPeriodicNotification(t: AudioTrack?) {}
             })
-        } catch (_: Exception) {
-            // Audio error safeguard - fail silently without crashing game
-        }
+        } catch (_: Exception) {}
     }
 }

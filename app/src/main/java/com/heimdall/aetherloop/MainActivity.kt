@@ -15,8 +15,8 @@ import androidx.lifecycle.lifecycleScope
 import com.heimdall.aetherloop.core.HapticManager
 import com.heimdall.aetherloop.core.PlayerProgressManager
 import com.heimdall.aetherloop.core.SoundSynthesizer
-import com.heimdall.aetherloop.game.engine.GameLoopEngine
 import com.heimdall.aetherloop.game.engine.GameState
+import com.heimdall.aetherloop.game.engine.VikingArkanoidEngine
 import com.heimdall.aetherloop.ui.components.*
 import com.heimdall.aetherloop.ui.theme.HeimdallAetherLoopTheme
 import com.heimdall.aetherloop.updater.GitHubUpdateManager
@@ -24,17 +24,16 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
- * Main Activity of AetherLoop.
+ * Main Activity of AetherLoop: Viking Combat.
  *
- * Implements true immersive sticky fullscreen (no status or navigation bars),
- * continuous 60 FPS hardware-accelerated game loop, and reactive HUD.
+ * Implements true fullscreen Arkanoid naval battle against invading Viking fleets.
  */
 class MainActivity : ComponentActivity() {
 
     private lateinit var soundSynthesizer: SoundSynthesizer
     private lateinit var hapticManager: HapticManager
     private lateinit var progressManager: PlayerProgressManager
-    private lateinit var engine: GameLoopEngine
+    private lateinit var engine: VikingArkanoidEngine
     private lateinit var updateManager: GitHubUpdateManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,7 +48,7 @@ class MainActivity : ComponentActivity() {
         soundSynthesizer.isMuted = !progressManager.isSoundEnabled()
         hapticManager.isHapticsEnabled = progressManager.isHapticsEnabled()
 
-        engine = GameLoopEngine(soundSynthesizer, hapticManager, progressManager)
+        engine = VikingArkanoidEngine(soundSynthesizer, hapticManager, progressManager)
         updateManager = GitHubUpdateManager(this)
 
         setContent {
@@ -85,48 +84,47 @@ class MainActivity : ComponentActivity() {
                             canvasHeight = size.height.toFloat()
                         }
                 ) {
-                    // 1. Core Physics & Graphics Canvas with tap dispatch and vessel boost
-                    GameCanvasView(
+                    // 1. Arkanoid Canvas (Longships, Paddle, Energy Balls, Splinters, Runes)
+                    ArkanoidCanvasView(
                         engine = engine,
-                        frameTick = frameTick,
-                        onTapScreen = { tapOffset -> engine.handleScreenTap(tapOffset) }
+                        frameTick = frameTick
                     )
 
-                    // 2. Interactive Glassmorphic HUD with Shield Bar & Relic Powers
-                    HudOverlay(
+                    // 2. Safe HUD Overlay (Score, Lives, Safe Settings Button)
+                    ArkanoidHudOverlay(
                         engine = engine,
                         onOpenSettings = { showSettings = true }
                     )
 
-                    // 3. Mission Briefing Modal (Displayed at level start explaining the objective)
+                    // 3. Mission Briefing Modal (Battle Plan)
                     if (gameState == GameState.MISSION_BRIEFING) {
                         MissionBriefingDialog(
-                            level = engine.currentLevel,
-                            onStart = { engine.startLevelAction() }
+                            wave = engine.currentWave.value,
+                            onStart = { engine.startWaveAction() }
                         )
                     }
 
-                    // 4. Level Victory Modal
+                    // 4. Wave Victory Modal
                     if (gameState == GameState.REALM_STABILIZED) {
                         RealmCompleteDialog(
-                            level = engine.currentLevel,
-                            score = engine.currentScore.intValue,
+                            wave = engine.currentWave.value,
+                            score = engine.score.intValue,
                             stars = engine.earnedStars.intValue,
                             isNewHighScore = engine.isNewHighScore.value,
-                            onNextLevel = { engine.nextLevel() },
-                            onReplay = { engine.restartCurrentLevel() }
+                            onNextLevel = { engine.nextWave() },
+                            onReplay = { engine.restartCurrentWave() }
                         )
                     }
 
-                    // 5. Defeat Modal (When Shield Hits 0%)
+                    // 5. Defeat Modal
                     if (gameState == GameState.VOID_OVERLOAD) {
                         DefeatDialog(
-                            level = engine.currentLevel,
-                            onRetry = { engine.restartCurrentLevel() }
+                            wave = engine.currentWave.value,
+                            onRetry = { engine.restartCurrentWave() }
                         )
                     }
 
-                    // 6. Settings & Level Selector Modal
+                    // 6. Safe Settings & Wave Selector Modal
                     if (showSettings) {
                         SettingsDialog(
                             engine = engine,

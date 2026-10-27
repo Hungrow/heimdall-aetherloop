@@ -5,7 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
@@ -21,15 +21,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.heimdall.aetherloop.game.model.RealmLevel
+import com.heimdall.aetherloop.game.model.FleetWave
 import com.heimdall.aetherloop.ui.theme.*
 
 /**
- * Realm Victory Celebration Dialog with 3-Star Rating and High Scores.
+ * Wave Victory Celebration Dialog with 3-Star Rating and High Scores.
  */
 @Composable
 fun RealmCompleteDialog(
-    level: RealmLevel,
+    wave: FleetWave,
     score: Int,
     stars: Int,
     isNewHighScore: Boolean,
@@ -52,7 +52,6 @@ fun RealmCompleteDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Celebration Icon
                 Box(
                     modifier = Modifier
                         .size(60.dp)
@@ -73,7 +72,7 @@ fun RealmCompleteDialog(
                 }
 
                 Text(
-                    text = "¡REINO ESTABILIZADO!",
+                    text = "¡FLOTA ENEMIGA HUNDIDA!",
                     color = HeimdallGold,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Black,
@@ -97,13 +96,12 @@ fun RealmCompleteDialog(
                 }
 
                 Text(
-                    text = "Has disuelto el mosaico sagrado de ${level.realmName} y sellado el portal.",
+                    text = "Has hundido la escuadra invasora de ${wave.title} y protegido el fiordo.",
                     color = TextSecondary,
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center
                 )
 
-                // Score Panel
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -118,7 +116,7 @@ fun RealmCompleteDialog(
 
                     if (isNewHighScore) {
                         Text(
-                            text = "★ ¡NUEVO RÉCORD DEL REINO! ★",
+                            text = "★ ¡NUEVO RÉCORD DE BATALLA! ★",
                             color = HeimdallGold,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.ExtraBold
@@ -148,7 +146,7 @@ fun RealmCompleteDialog(
                     ) {
                         Text("Siguiente", color = CosmosDark, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.width(4.dp))
-                        Icon(Icons.Default.ArrowForward, contentDescription = null, tint = CosmosDark)
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = CosmosDark)
                     }
                 }
             }

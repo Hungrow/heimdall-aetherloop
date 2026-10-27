@@ -77,3 +77,29 @@ sequenceDiagram
     Manager->>OS: Intent(ACTION_VIEW, content://provider/...)
     OS-->>Usuario: Muestra instalador del sistema
 ```
+
+---
+
+## 5. Motor de Combate Naval Vikingo Arkanoid ([`VikingArkanoidEngine`](file:///c:/Users/hungr/Desktop/sandloop/app/src/main/java/com/heimdall/aetherloop/game/engine/VikingArkanoidEngine.kt))
+
+En la versión **v2.0.0**, el juego evoluciona a un sistema de combate Arkanoid de alta reactividad táctica:
+
+### Mecánica de Rebote Angular en la Pala-Escudo
+Para permitir un control estratégico del ángulo de tiro sin depender de física compleja:
+$$\Delta x_{\text{rel}} = \frac{x_{\text{esfera}} - x_{\text{pala}}}{W_{\text{pala}} / 2} \in [-1, 1]$$
+$$\theta = \Delta x_{\text{rel}} \cdot \theta_{\max}, \quad \text{donde } \theta_{\max} = 65^\circ \ (1.134\,\text{rad})$$
+$$v_x = v \cdot \sin(\theta), \quad v_y = -v \cdot \cos(\theta)$$
+Los impactos en los extremos de la pala proyectan la esfera con ángulos agudos rasantes, ideales para alcanzar drakkars protegidos en las esquinas superiores del fiordo.
+
+### Detección y Resolución de Colisiones Círculo-AABB
+El [`CollisionEngine`](file:///c:/Users/hungr/Desktop/sandloop/app/src/main/java/com/heimdall/aetherloop/game/physics/CollisionEngine.kt) calcula el punto más cercano del rectángulo delimitador de cada nave a la esfera:
+$$x_{\text{cercano}} = \text{clamp}(x_{\text{esfera}}, \text{left}, \text{right})$$
+$$y_{\text{cercano}} = \text{clamp}(y_{\text{esfera}}, \text{top}, \text{bottom})$$
+$$\text{distancia}^2 = (x_{\text{esfera}} - x_{\text{cercano}})^2 + (y_{\text{esfera}} - y_{\text{cercano}})^2$$
+Si $\text{distancia}^2 \le R_{\text{esfera}}^2$, se registra impacto, decrementando los puntos de vida de la nave, generando partículas de astillas de madera y calculando la normal de rebote.
+
+### Sistema de Balistas Gemelas y Fuego de Área
+* **Balistas**: Torretas láser que disparan proyectiles verticales directos a $1400\,\text{px/s}$.
+* **Fuego de Surtr**: Al impactar, desencadena una onda expansiva de radio $120\,\text{px}$ que inflige 2 de daño a todas las naves dentro del perímetro.
+* **Perforación Mjölnir**: La esfera electrificada atraviesa armaduras sin invertir su vector de velocidad vertical $v_y$.
+

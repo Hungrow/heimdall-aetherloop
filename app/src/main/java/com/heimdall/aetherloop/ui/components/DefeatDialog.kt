@@ -17,15 +17,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.heimdall.aetherloop.game.model.RealmLevel
+import com.heimdall.aetherloop.game.model.FleetWave
 import com.heimdall.aetherloop.ui.theme.*
 
 /**
- * Defeat Dialog when Shield reaches 0%.
+ * Defeat Dialog when all lives are lost.
  */
 @Composable
 fun DefeatDialog(
-    level: RealmLevel,
+    wave: FleetWave,
     onRetry: () -> Unit
 ) {
     Dialog(onDismissRequest = {}) {
@@ -61,7 +61,7 @@ fun DefeatDialog(
                 }
 
                 Text(
-                    text = "¡ESCUDO COLAPSADO!",
+                    text = "¡FLOTA DESTRUIDA!",
                     color = MuspelCrimson,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Black,
@@ -69,7 +69,7 @@ fun DefeatDialog(
                 )
 
                 Text(
-                    text = "Demasiado éter cayó en el vacío cósmico. El puente Bifröst en ${level.realmName} ha colapsado.",
+                    text = "Has perdido todas las esferas de energía. La flota invasora ha cruzado el fiordo en ${wave.title}.",
                     color = TextSecondary,
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center
@@ -86,7 +86,7 @@ fun DefeatDialog(
                     Icon(Icons.Default.Refresh, contentDescription = null, tint = TextPrimary)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "REINTENTAR REINO",
+                        text = "REINTENTAR OLEADA",
                         color = TextPrimary,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp

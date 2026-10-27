@@ -13,19 +13,19 @@ object HeimdallEcosystem {
     const val ECOSYSTEM_NAME = "Heimdall Universe"
     const val APP_NAME = "AetherLoop"
     const val MODULE_ID = "heimdall.ecosystem.aetherloop"
-    const val VERSION_NAME = "1.2.0"
-    const val VERSION_CODE = 4
+    const val VERSION_NAME = "2.0.0"
+    const val VERSION_CODE = 5
 
     const val GITHUB_REPO_OWNER = "Hungrow"
     const val GITHUB_REPO_NAME = "heimdall-aetherloop"
     const val GITHUB_API_URL = "https://api.github.com/repos/$GITHUB_REPO_OWNER/$GITHUB_REPO_NAME/releases/latest"
 
     /**
-     * Lore description for the Heimdall resonance mechanic.
+     * Lore description for the Heimdall naval combat mechanic.
      */
     const val LORE_SYNOPSIS =
-        "As Heimdall, sentinel of Asgard, you oversee the celestial Bifrost Resonance Conduits. " +
-        "Cosmic aether cascades from the World Tree through realm rifts. Dispatch and synchronize " +
-        "rune-forged vessels along the gravitational loop to harvest matching celestial energy, " +
-        "stabilize the Nine Realms, and seal the cosmic fractures."
+        "Hostile longship armadas cross the celestial fjords of the Nine Realms. " +
+        "As Heimdall's guardian vanguard, command the Asgardian aegis paddle, " +
+        "launch rune-charged orbs into the enemy battle lines, deflect devastating counter-fire, " +
+        "and summon legendary powers — Mjölnir, Surtr's Flame, and Dual Ballistas — to crush Naglfar's fleet!"
 }
