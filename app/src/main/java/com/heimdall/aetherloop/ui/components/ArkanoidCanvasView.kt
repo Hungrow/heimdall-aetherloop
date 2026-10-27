@@ -270,12 +270,16 @@ private fun DrawScope.drawProceduralBattleMap(
     timeSec: Float,
     sceneryList: List<FloatingScenery>
 ) {
-    val horizonY = h * 0.11f
+    val horizonY = h * 0.10f
 
-    // 1. Distant Nordic Fjord Skyline (11% top of screen)
+    // 1. Distant Scandinavian Coastal Horizon & Morning Sky
     drawRect(
         brush = Brush.verticalGradient(
-            colors = biome.skyColors,
+            colors = listOf(
+                biome.skyColors.first(),
+                biome.skyColors.last(),
+                Color(0xFF2E5B82)
+            ),
             startY = 0f,
             endY = horizonY
         ),
@@ -283,34 +287,50 @@ private fun DrawScope.drawProceduralBattleMap(
         size = Size(w, horizonY)
     )
 
-    // Distant mountain / cliff silhouettes on the horizon
-    val mountainPath = Path()
-    mountainPath.moveTo(0f, horizonY)
-    mountainPath.lineTo(w * 0.12f, horizonY - 26f)
-    mountainPath.lineTo(w * 0.28f, horizonY - 14f)
-    mountainPath.lineTo(w * 0.44f, horizonY - 32f)
-    mountainPath.lineTo(w * 0.62f, horizonY - 16f)
-    mountainPath.lineTo(w * 0.82f, horizonY - 38f)
-    mountainPath.lineTo(w, horizonY - 18f)
-    mountainPath.lineTo(w, horizonY)
-    mountainPath.close()
-    drawPath(
-        path = mountainPath,
-        color = biome.skyColors.first().copy(alpha = 0.85f)
-    )
+    // Layer 1: Distant Misty Fjord Mountain Peaks
+    val mountainFar = Path()
+    mountainFar.moveTo(0f, horizonY)
+    mountainFar.lineTo(w * 0.10f, horizonY - 34f)
+    mountainFar.lineTo(w * 0.22f, horizonY - 18f)
+    mountainFar.lineTo(w * 0.38f, horizonY - 42f)
+    mountainFar.lineTo(w * 0.55f, horizonY - 20f)
+    mountainFar.lineTo(w * 0.72f, horizonY - 48f)
+    mountainFar.lineTo(w * 0.88f, horizonY - 24f)
+    mountainFar.lineTo(w, horizonY - 30f)
+    mountainFar.lineTo(w, horizonY)
+    mountainFar.close()
+    drawPath(path = mountainFar, color = Color(0xFF1B3B5A).copy(alpha = 0.7f))
 
-    // Horizon mist light
+    // Layer 2: Near Fjord Cliffs with Forest/Rock Silhouette
+    val mountainNear = Path()
+    mountainNear.moveTo(0f, horizonY)
+    mountainNear.lineTo(w * 0.16f, horizonY - 20f)
+    mountainNear.lineTo(w * 0.32f, horizonY - 8f)
+    mountainNear.lineTo(w * 0.48f, horizonY - 26f)
+    mountainNear.lineTo(w * 0.65f, horizonY - 12f)
+    mountainNear.lineTo(w * 0.85f, horizonY - 28f)
+    mountainNear.lineTo(w, horizonY - 10f)
+    mountainNear.lineTo(w, horizonY)
+    mountainNear.close()
+    drawPath(path = mountainNear, color = Color(0xFF0F263D).copy(alpha = 0.9f))
+
+    // Horizon Sea Foam Surf line
     drawLine(
-        color = biome.waveFoamColor.copy(alpha = 0.6f),
+        color = Color(0x99E0F7FA),
         start = Offset(0f, horizonY),
         end = Offset(w, horizonY),
-        strokeWidth = 2.5f
+        strokeWidth = 3f
     )
 
-    // 2. Realistic Oceanic Sea (covering from horizon down to bottom 89%)
+    // 2. Realistic Open Oceanic Waters (from horizon down to bottom)
     drawRect(
         brush = Brush.verticalGradient(
-            colors = biome.waterColors,
+            colors = listOf(
+                Color(0xFF0D3B66), // Translucent coastal azure
+                Color(0xFF092E52), // Deep sapphire
+                Color(0xFF05203A), // Abyssal naval blue
+                Color(0xFF062A4A)  // Clear surface near player
+            ),
             startY = horizonY,
             endY = h
         ),
@@ -318,7 +338,21 @@ private fun DrawScope.drawProceduralBattleMap(
         size = Size(w, h - horizonY)
     )
 
-    // Floating Scenery (Icebergs, rocks, buoys)
+    // Water Surface Caustics (Sunlight glistening on moving water)
+    for (row in 0 until 6) {
+        val cy = horizonY + (h - horizonY) * (0.15f + row * 0.14f)
+        val phase = timeSec * 1.5f + row * 1.8f
+        for (col in 0 until 5) {
+            val cx = w * (0.1f + col * 0.2f) + sin(phase + col) * 16f
+            drawCircle(
+                color = Color(0x18FFFFFF),
+                radius = 18f + sin(phase * 1.5f + col) * 6f,
+                center = Offset(cx, cy)
+            )
+        }
+    }
+
+    // Floating Scenery (Icebergs, volcanic rocks, ghost wrecks)
     for (scenery in sceneryList) {
         val scColor = when (scenery.type) {
             SceneryType.ICEBERG -> Color(0xD0E0F7FA)
@@ -327,6 +361,13 @@ private fun DrawScope.drawProceduralBattleMap(
             SceneryType.RUNIC_BUOY -> Color(0xE000B0FF)
         }
         rotate(degrees = scenery.rotation, pivot = Offset(scenery.x, scenery.y)) {
+            // Water displacement shadow
+            drawRoundRect(
+                color = Color(0x33000000),
+                topLeft = Offset(scenery.x - scenery.width * 0.45f, scenery.y - scenery.height * 0.35f + 4f),
+                size = Size(scenery.width, scenery.height),
+                cornerRadius = CornerRadius(8f, 8f)
+            )
             drawRoundRect(
                 color = scColor,
                 topLeft = Offset(scenery.x - scenery.width / 2f, scenery.y - scenery.height / 2f),
@@ -334,39 +375,40 @@ private fun DrawScope.drawProceduralBattleMap(
                 cornerRadius = CornerRadius(8f, 8f)
             )
             drawCircle(
-                color = biome.waveFoamColor,
-                radius = scenery.width * 0.6f,
-                center = Offset(scenery.x, scenery.y + scenery.height * 0.4f),
-                style = Stroke(1.2f)
+                color = Color(0x66FFFFFF),
+                radius = scenery.width * 0.55f,
+                center = Offset(scenery.x, scenery.y + scenery.height * 0.35f),
+                style = Stroke(1.5f)
             )
         }
     }
 
-    // Dynamic Ocean Sea Wavelets
-    val numWaves = 9
+    // Realistic Multi-Layer Ocean Wave Swells (Gentle visual waves that never block)
+    val numWaves = 8
     for (i in 0 until numWaves) {
-        val baseY = horizonY + (h - horizonY) * ((i + 1) / (numWaves + 1.0f))
-        val waveSpeed = (i + 1) * 1.3f
-        val waveAmplitude = 5f + i * 0.9f
+        val baseY = horizonY + (h - horizonY) * ((i + 1) / (numWaves + 1.2f))
+        val waveSpeed = (i + 1) * 1.1f
+        val waveAmp = 5f + i * 0.8f
         val path = Path()
         path.moveTo(0f, baseY)
         var x = 0f
         while (x <= w) {
-            val yOffset = sin(x * 0.016f + timeSec * waveSpeed) * waveAmplitude
+            val yOffset = sin(x * 0.014f + timeSec * waveSpeed) * waveAmp
             path.lineTo(x, baseY + yOffset)
             x += 16f
         }
+        // Wave crest foam line
         drawPath(
             path = path,
-            color = biome.waveFoamColor.copy(alpha = 0.45f),
-            style = Stroke(width = 1.6f + (i * 0.25f))
+            color = Color(0x38FFFFFF),
+            style = Stroke(width = 1.4f + (i * 0.2f))
         )
     }
 }
 
 /**
- * Draws rolling Ocean Swells. When surging at peak crest (isBlocking = true),
- * it displays prominent whitecap crests and water spray that absorb projectiles!
+ * Draws rolling Ocean Swells.
+ * Surges only once every 16 seconds for a brief ~1.1s blocking window.
  */
 private fun DrawScope.drawOceanSwells(
     w: Float,
@@ -377,51 +419,65 @@ private fun DrawScope.drawOceanSwells(
     for (swell in swells) {
         val y = swell.y
         val isSurging = swell.isBlocking
-        val crestColor = if (isSurging) Color.White else biome.waveFoamColor
-        val alpha = if (isSurging) 0.92f else swell.crestAlpha * 0.5f
+        val isWarning = swell.isWarning
 
-        // Surging water curtain band
+        // 1. Warning Froth (2 seconds before surge)
+        if (isWarning) {
+            drawRect(
+                brush = Brush.verticalGradient(
+                    colors = listOf(Color.Transparent, Color(0x22FFD600), Color.Transparent),
+                    startY = y - 20f,
+                    endY = y + 20f
+                ),
+                topLeft = Offset(0f, y - 20f),
+                size = Size(w, 40f)
+            )
+        }
+
+        // 2. Surging Breaker Wave (Brief 1.1s blocking surge)
         if (isSurging) {
+            // Translucent water curtain
             drawRect(
                 brush = Brush.verticalGradient(
                     colors = listOf(
                         Color.Transparent,
-                        Color(0x5500E5FF),
-                        Color(0x3300B0FF),
+                        Color(0x6600E5FF),
+                        Color(0x4400B0FF),
                         Color.Transparent
                     ),
-                    startY = y - swell.height,
-                    endY = y + swell.height
+                    startY = y - swell.height * 1.2f,
+                    endY = y + swell.height * 1.2f
                 ),
-                topLeft = Offset(0f, y - swell.height),
-                size = Size(w, swell.height * 2f)
+                topLeft = Offset(0f, y - swell.height * 1.2f),
+                size = Size(w, swell.height * 2.4f)
             )
         }
 
-        // Foaming wave crest line
+        // Foaming crest curve
         val wavePath = Path()
         wavePath.moveTo(0f, y)
         var x = 0f
-        val crestAmp = if (isSurging) 9f else 5f
+        val crestAmp = if (isSurging) 11f else 4f
         while (x <= w) {
-            val yOff = sin(x * 0.022f + timeSec * 4f + swell.id) * crestAmp
+            val yOff = sin(x * 0.020f + timeSec * (if (isSurging) 5f else 2f) + swell.id) * crestAmp
             wavePath.lineTo(x, y + yOff)
             x += 14f
         }
+
         drawPath(
             path = wavePath,
-            color = crestColor.copy(alpha = alpha),
-            style = Stroke(width = if (isSurging) 5.5f else 2.2f)
+            color = if (isSurging) Color.White else Color(0x44FFFFFF),
+            style = Stroke(width = if (isSurging) 6f else 2f)
         )
 
-        // Surging crest water spray droplets
+        // Surging water spray droplets
         if (isSurging) {
-            for (step in 0 until (w / 45f).toInt()) {
-                val dropX = step * 45f + sin(timeSec * 6f + step) * 12f
-                val dropY = y - 10f + sin(timeSec * 8f + step * 2f) * 6f
+            for (step in 0 until (w / 35f).toInt()) {
+                val dropX = step * 35f + sin(timeSec * 8f + step) * 10f
+                val dropY = y - 12f + sin(timeSec * 10f + step * 2f) * 8f
                 drawCircle(
-                    color = Color.White.copy(alpha = 0.85f),
-                    radius = 3f,
+                    color = Color.White.copy(alpha = 0.9f),
+                    radius = 3.5f,
                     center = Offset(dropX, dropY)
                 )
             }
@@ -670,14 +726,82 @@ private fun DrawScope.drawPowerUpRune(
     runeSprite: ImageBitmap,
     timeSec: Float
 ) {
-    val size = (p.radius * 2.3f).toInt()
-    val haloRadius = p.radius * (1.2f + sin(timeSec * 5f) * 0.15f)
-    drawCircle(
-        color = p.type.color.copy(alpha = 0.35f),
-        radius = haloRadius,
-        center = Offset(p.x, p.y)
-    )
+    val size = (p.radius * 2.5f).toInt()
+    val isCurse = p.type.isCurse
 
+    if (isCurse) {
+        // --- DOWNGRAVDE / MALEFICIO: MENACING SPIKED RED-PURPLE HAZARD ---
+        val pulse = sin(timeSec * 7f) * 4f
+        val spikeR = p.radius * 1.5f + pulse
+
+        // Sinister toxic smoke
+        drawCircle(
+            color = Color(0x66D50000),
+            radius = spikeR * 1.3f,
+            center = Offset(p.x, p.y)
+        )
+        drawCircle(
+            color = Color(0x559C27B0),
+            radius = spikeR,
+            center = Offset(p.x, p.y)
+        )
+
+        // Spiked warning diamond border
+        val diamond = Path()
+        diamond.moveTo(p.x, p.y - spikeR * 1.2f)
+        diamond.lineTo(p.x + spikeR * 1.2f, p.y)
+        diamond.lineTo(p.x, p.y + spikeR * 1.2f)
+        diamond.lineTo(p.x - spikeR * 1.2f, p.y)
+        diamond.close()
+        drawPath(path = diamond, color = Color(0xFFFF1744), style = Stroke(3f))
+
+        // Warning text banner above
+        drawContext.canvas.nativeCanvas.apply {
+            val paint = Paint().apply {
+                textSize = 20f
+                textAlign = Paint.Align.CENTER
+                typeface = Typeface.DEFAULT_BOLD
+                color = android.graphics.Color.parseColor("#FF1744")
+                isAntiAlias = true
+            }
+            drawText("⚠️ PELIGRO", p.x, p.y - spikeR * 1.2f - 4f, paint)
+        }
+    } else {
+        // --- UPGRADE / BENDICIÓN: CELESTIAL GOLDEN DIVINE MEDALLION ---
+        val haloRadius = p.radius * (1.3f + sin(timeSec * 4f) * 0.15f)
+
+        // Outer divine glow
+        drawCircle(
+            color = HeimdallGold.copy(alpha = 0.45f),
+            radius = haloRadius * 1.3f,
+            center = Offset(p.x, p.y)
+        )
+        drawCircle(
+            color = p.type.color.copy(alpha = 0.5f),
+            radius = haloRadius,
+            center = Offset(p.x, p.y)
+        )
+        drawCircle(
+            color = Color.White.copy(alpha = 0.7f),
+            radius = haloRadius * 1.2f,
+            center = Offset(p.x, p.y),
+            style = Stroke(1.5f)
+        )
+
+        // Text banner above
+        drawContext.canvas.nativeCanvas.apply {
+            val paint = Paint().apply {
+                textSize = 20f
+                textAlign = Paint.Align.CENTER
+                typeface = Typeface.DEFAULT_BOLD
+                color = android.graphics.Color.parseColor("#FFD700")
+                isAntiAlias = true
+            }
+            drawText("✨ MEJORA", p.x, p.y - haloRadius - 6f, paint)
+        }
+    }
+
+    // Sprite image
     drawImage(
         image = runeSprite,
         dstOffset = IntOffset((p.x - size / 2f).toInt(), (p.y - size / 2f).toInt()),

@@ -96,23 +96,26 @@ enum class AmbientParticleType {
 data class OceanSwell(
     val id: Long,
     var y: Float,
-    var height: Float = 36f,
-    var vy: Float = 32f,
+    var height: Float = 34f,
+    var vy: Float = 18f,
     var surgeTimer: Float = 0f,
-    val period: Float = 5.2f,
+    val period: Float = 16.0f, // Surges only once every 16 seconds
     var isBlocking: Boolean = false,
+    var isWarning: Boolean = false,
     var crestAlpha: Float = 0f
 ) {
     fun update(dt: Float, screenHeight: Float) {
         surgeTimer += dt
         val phase = (surgeTimer % period) / period
         val surgeStrength = (sin(phase * 2.0 * PI).toFloat() + 1f) / 2f
-        isBlocking = surgeStrength > 0.65f
-        crestAlpha = surgeStrength.coerceIn(0.2f, 1.0f)
+        // Only blocks at the extreme peak of the surge (~1.1 seconds every 16s)
+        isBlocking = surgeStrength > 0.88f
+        isWarning = surgeStrength in 0.72f..0.88f
+        crestAlpha = surgeStrength.coerceIn(0.15f, 1.0f)
 
         y += vy * dt
-        val lowerLimit = screenHeight * 0.80f
-        val upperLimit = screenHeight * 0.28f
+        val lowerLimit = screenHeight * 0.76f
+        val upperLimit = screenHeight * 0.32f
         if (y > lowerLimit) {
             y = upperLimit
         }

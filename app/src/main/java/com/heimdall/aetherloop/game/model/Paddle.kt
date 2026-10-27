@@ -47,16 +47,16 @@ data class Paddle(
 
     fun applyTierDimensions() {
         baseWidth = when (tier) {
-            1 -> 180f
-            2 -> 230f
+            1 -> 160f
+            2 -> 220f
             3 -> 280f
-            else -> 340f
+            else -> 350f
         }
         height = when (tier) {
-            1 -> 28f
-            2 -> 38f
-            3 -> 50f
-            else -> 62f
+            1 -> 26f
+            2 -> 44f
+            3 -> 62f
+            else -> 84f
         }
         val currentExpMultiplier = if (isLokiCursed) 0.7f else if (expandTimer > 0f) 1.35f else 1.0f
         width = baseWidth * currentExpMultiplier

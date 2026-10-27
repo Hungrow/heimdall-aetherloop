@@ -363,6 +363,7 @@ class CollisionEngine(
         paddle: Paddle,
         onPowerUpCollected: (PowerUpType) -> Unit
     ) {
+        val caughtTypes = mutableListOf<PowerUpType>()
         val iter = powerUps.iterator()
         while (iter.hasNext()) {
             val p = iter.next()
@@ -373,16 +374,20 @@ class CollisionEngine(
                     FloatingText(
                         x = paddle.centerX,
                         y = paddle.top - 20f,
-                        text = "¡${p.type.title.uppercase()}!",
+                        text = if (p.type.isCurse) "¡${p.type.title.uppercase()}!" else "¡${p.type.title.uppercase()}!",
                         color = p.type.color
                     )
                 )
                 waterRipples.add(
                     WaterRipple(x = paddle.centerX, y = paddle.top, maxRadius = 40f, color = p.type.color)
                 )
-                onPowerUpCollected(p.type)
+                caughtTypes.add(p.type)
                 iter.remove()
             }
+        }
+        // Invoke callbacks safely outside iteration
+        for (type in caughtTypes) {
+            onPowerUpCollected(type)
         }
     }
 

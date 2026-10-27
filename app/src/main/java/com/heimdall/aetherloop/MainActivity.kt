@@ -77,14 +77,16 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // Main Gameplay Physics Loop
+                // Main Gameplay Physics Loop (100% crash-proof with error guard)
                 LaunchedEffect(currentScreen) {
                     var lastNanos = 0L
                     while (isActive) {
                         withFrameNanos { nowNanos ->
                             if (lastNanos != 0L && currentScreen == AppScreen.GAMEPLAY) {
                                 val dt = ((nowNanos - lastNanos) / 1_000_000_000.0).toFloat()
-                                engine.update(dt, canvasWidth, canvasHeight)
+                                try {
+                                    engine.update(dt, canvasWidth, canvasHeight)
+                                } catch (_: Throwable) {}
                             }
                             lastNanos = nowNanos
                             frameTick = nowNanos

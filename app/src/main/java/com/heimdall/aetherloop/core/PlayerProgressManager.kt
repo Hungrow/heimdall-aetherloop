@@ -17,7 +17,7 @@ object AvatarCatalog {
         AvatarProfile("avatar_lagertha", "Lagertha", "Doncella Escudera", R.drawable.avatar_lagertha),
         AvatarProfile("avatar_heimdall", "Heimdall", "Guardián del Bifröst", R.drawable.avatar_heimdall),
         AvatarProfile("avatar_bjorn", "Björn", "Berserker de la Piel de Oso", R.drawable.avatar_bjorn),
-        AvatarProfile("avatar_freya", "Freya", "Völva y Vidente Rúnica", R.drawable.avatar_freya),
+        AvatarProfile("avatar_odin", "Odín", "Padre de Todo", R.drawable.avatar_odin),
         AvatarProfile("avatar_brunhild", "Brunhild", "Valquiria de la Aurora", R.drawable.avatar_brunhild)
     )
 

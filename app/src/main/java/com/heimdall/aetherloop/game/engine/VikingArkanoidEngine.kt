@@ -125,8 +125,7 @@ class VikingArkanoidEngine(
         frostNovaTimer = 0f
 
         oceanSwells.clear()
-        oceanSwells.add(OceanSwell(id = 1L, y = screenHeight * 0.44f, height = 36f, vy = 30f, surgeTimer = 0f))
-        oceanSwells.add(OceanSwell(id = 2L, y = screenHeight * 0.65f, height = 38f, vy = 34f, surgeTimer = 2.6f))
+        oceanSwells.add(OceanSwell(id = 1L, y = screenHeight * 0.52f, height = 34f, vy = 18f, surgeTimer = 0f, period = 16.0f))
 
         initAmbientParticles(screenWidth, screenHeight)
         initFloatingScenery(screenWidth, screenHeight)
@@ -451,6 +450,14 @@ class VikingArkanoidEngine(
             val upgraded = paddle.upgradeTier()
             if (upgraded) {
                 soundSynthesizer.playShipUpgrade()
+                collisionEngine.floatingTexts.add(
+                    FloatingText(
+                        x = paddle.centerX,
+                        y = paddle.top - 35f,
+                        text = "⭐ ¡BARCO EVOLUCIONADO: TIER ${paddle.tier}! ⭐",
+                        color = Color(0xFFFFD700)
+                    )
+                )
             }
         }
 
